@@ -29,9 +29,10 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
-import com.spazedog.lib.reflecttools.apache.Common;
-
+import android.os.IBinder;
 import android.util.Property;
+
+import com.spazedog.lib.reflecttools.apache.Common;
 
 public class ReflectTools {
 	public static final String TAG = ReflectTools.class.getName();
@@ -1386,6 +1387,48 @@ public class ReflectTools {
 		public Object invoke(Boolean original, Object... args) {
 			try {
 				return getConstructorByArgs(MEMBER_MATCH_BEST, args).invoke(original, args);
+				
+			} catch (ReflectException e) {
+				throw new ReflectException(e.getMessage(), e);
+			}
+		}
+		
+		/**
+		 * <p>Get a binder from Android's Service Manager and bind it with this interface and return it.</p>
+		 * 
+		 * <p>Note that this object must be an interface that matches the service.</p>
+		 * 
+		 * @param service
+		 * 		The name of the service
+		 * 
+		 * @throws ReflectTools.ReflectException
+		 */
+		public Object asInterface(String service) {
+			try {
+				IBinder binder = (IBinder) ReflectTools.getReflectClass("android.os.ServiceManager").getMethod("getService", ReflectTools.MEMBER_MATCH_FAST, String.class).invoke(false, service);
+				
+				return asInterface(binder);
+				
+			} catch (ReflectException e) {
+				throw new ReflectException(e.getMessage(), e);
+			}
+		}
+		
+		/**
+		 * <p>Bind a binder object to this interface</p>
+		 * 
+		 * @param service
+		 * 		The name of the service
+		 * 
+		 * @throws ReflectTools.ReflectException
+		 */
+		public Object asInterface(IBinder binder) {
+			try {
+				String className = mClazz.getName();
+				ReflectClass reflectClazz = className.endsWith("$Stub") ? this : getReflectClass(className + "$Stub", mClazz.getClassLoader());
+				ReflectMethod reflectMethod = reflectClazz.getMethod("asInterface", MEMBER_MATCH_FAST, IBinder.class);
+				
+				return reflectMethod.invoke(false, binder);
 				
 			} catch (ReflectException e) {
 				throw new ReflectException(e.getMessage(), e);
