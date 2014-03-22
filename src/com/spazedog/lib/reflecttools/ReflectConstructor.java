@@ -22,6 +22,7 @@ package com.spazedog.lib.reflecttools;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
@@ -33,10 +34,17 @@ import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
 public class ReflectConstructor extends ReflectMember<ReflectConstructor> implements ReflectCallable<Constructor<?>> {
 	protected final static HashMap<String, Constructor<?>> oConstructorCache = new HashMap<String, Constructor<?>>();
+	protected final static HashMap<Constructor<?>, ArrayList<Object>> oConstructorUnhookCache = new HashMap<Constructor<?>, ArrayList<Object>>();
 	
 	protected Constructor<?> mConstructor;
 	protected ReflectClass mReflectClass;
 	protected OnReflectEvent mEventHandler;
+	
+	public ReflectConstructor(ReflectClass reflectClass, OnReflectEvent eventHandler, Constructor<?> constructor) {
+		mConstructor = constructor;
+		mReflectClass = reflectClass;
+		mEventHandler = eventHandler;
+	}
 	
 	public ReflectConstructor(ReflectClass reflectClass, OnReflectEvent eventHandler, Match match, ReflectParameters parameterTypes) {
 		String className = reflectClass.getObject().getName();
@@ -150,8 +158,38 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> implem
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mConstructor.getDeclaringClass().getClassLoader());
 			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.BEST, Member.class, "de.robv.android.xposed.XC_MethodHook");
+			ArrayList<Object> unhooks = oConstructorUnhookCache.get(mConstructor);
 			
-			hookMethod.invoke(false, mConstructor, hook);
+			if (unhooks == null) {
+				unhooks = new ArrayList<Object>();
+			}
+			
+			unhooks.add(hookMethod.invoke(mConstructor, hook));
+			
+			oConstructorUnhookCache.put(mConstructor, unhooks);
+			
+			mEventHandler.onEvent(Event.HOOK, this, mConstructor);
+			
+		} catch (ReflectException e) {
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public void removeInjection() {
+		try {
+			ArrayList<Object> unhooks = oConstructorUnhookCache.get(mConstructor);
+			
+			if (unhooks != null && unhooks.size() > 0) {
+				ReflectClass xposedUnhook = ReflectClass.forName("de.robv.android.xposed.XC_MethodHook$Unhook", mConstructor.getDeclaringClass().getClassLoader());
+				ReflectMethod unhookMethod = xposedUnhook.findMethod("unhook");
+				
+				for (Object unhook : unhooks) {
+					xposedUnhook.setReceiver(unhook);
+					unhookMethod.invoke();
+				}
+				
+				mEventHandler.onEvent(Event.UNHOOK, this, mConstructor);
+			}
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -181,7 +219,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> implem
 				
 				newConstructor.mReflectClass = new ReflectClass(newReceiver);
 				newConstructor.mConstructor = mConstructor;
-				newConstructor.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newConstructor);
+				newConstructor.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newConstructor, null);
 				
 				return newConstructor;
 			}

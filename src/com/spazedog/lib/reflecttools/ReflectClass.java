@@ -20,7 +20,10 @@
 
 package com.spazedog.lib.reflecttools;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import android.os.IBinder;
@@ -35,6 +38,7 @@ import com.spazedog.lib.reflecttools.utils.ReflectMember.ReflectParameters.Refle
 
 public class ReflectClass implements ReflectCallable<Class<?>> {
 	protected final static HashMap<String, Class<?>> oClassCache = new HashMap<String, Class<?>>();
+	protected final static HashMap<Class<?>, ArrayList<Member>> oInjectionCache = new HashMap<Class<?>, ArrayList<Member>>();
 	protected static final ClassLoader oClassLoader = ClassLoader.getSystemClassLoader();
 	
 	protected final Class<?> mClass;
@@ -48,9 +52,9 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	public static class OnReflectEvent {
 		private OnReflectEvent(){}
 		
-		public static enum Event { RECEIVER, ERROR, HANDLER }
+		public static enum Event { RECEIVER, ERROR, HANDLER, HOOK, UNHOOK }
 		
-		public Object onEvent(Event event, ReflectMember<?> member) {
+		public Object onEvent(Event event, ReflectMember<?> member, Object data) {
 			ReflectClass thisObject = member.getReflectClass();
 			
 			switch (event) {
@@ -68,6 +72,26 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 					
 				case HANDLER:
 					return member.getReflectClass().mHandler;
+					
+				case HOOK:
+				case UNHOOK:
+					ArrayList<Member> cache = oInjectionCache.get(thisObject.mClass);
+					Member content = (Member) data;
+					
+					if (cache == null) {
+						cache = new ArrayList<Member>();
+					}
+					
+					if (event == Event.HOOK && cache.indexOf(content) < 0) {
+						cache.add(content);
+						
+					} else if (event == Event.UNHOOK && cache.indexOf(content) >= 0) {
+						cache.remove(content);
+					}
+					
+					oInjectionCache.put(thisObject.mClass, cache);
+					
+					break;
 			}
 			
 			return null;
@@ -177,14 +201,15 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public Integer inject(String methodName, Object hook) {
 		try {
-			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mClass.getClassLoader());
-			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.BEST, Member.class, "de.robv.android.xposed.XC_MethodHook");
 			Member[] members = methodName != null ? mClass.getDeclaredMethods() : mClass.getDeclaredConstructors();
 			Integer count = 0;
 			
 			for (Member member : members) {
-				if (methodName == null || member.getName().equals(methodName)) {
-					hookMethod.invoke(member, hook); count++;
+				if (methodName == null) {
+					new ReflectConstructor(this, mHandler, (Constructor<?>) member).inject(hook); count++;
+					
+				} else if (member.getName().equals(methodName)) {
+					new ReflectMethod(this, mHandler, (Method) member).inject(hook); count++;
 				}
 			}
 			
@@ -202,6 +227,46 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
 		}
+	}
+	
+	public void removeInjections() {
+		ArrayList<Member> members = new ArrayList<Member>(oInjectionCache.get(mClass));
+		
+		if (members != null && members.size() > 0) {
+			for (Member member : members) {
+				try {
+					if (member instanceof Constructor) {
+						new ReflectConstructor(this, mHandler, (Constructor<?>) member).removeInjection();
+						
+					} else {
+						new ReflectMethod(this, mHandler, (Method) member).removeInjection();
+					}
+					
+				} catch (ReflectException e) {}
+			}
+		}
+	}
+	
+	public void removeInjection(String methodName) {
+		ArrayList<Member> members = new ArrayList<Member>(oInjectionCache.get(mClass));
+		
+		if (members != null && members.size() > 0) {
+			for (Member member : members) {
+				try {
+					if (methodName == null && member instanceof Constructor) {
+						new ReflectConstructor(this, mHandler, (Constructor<?>) member).removeInjection();
+						
+					} else if (methodName != null && member.getName().equals(methodName)) {
+						new ReflectMethod(this, mHandler, (Method) member).removeInjection();
+					}
+					
+				} catch (ReflectException e) {}
+			}
+		}
+	}
+	
+	public void removeInjection() {
+		removeInjection(null);
 	}
 	
 	public Object newInstance(Object... args) {

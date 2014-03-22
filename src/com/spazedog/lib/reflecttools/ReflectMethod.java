@@ -23,6 +23,7 @@ package com.spazedog.lib.reflecttools;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
@@ -34,10 +35,17 @@ import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
 public class ReflectMethod extends ReflectMember<ReflectMethod> implements ReflectCallable<Method> {
 	protected final static HashMap<String, Method> oMethodCache = new HashMap<String, Method>();
+	protected final static HashMap<Method, ArrayList<Object>> oMethodUnhookCache = new HashMap<Method, ArrayList<Object>>();
 	
 	protected Method mMethod;
 	protected ReflectClass mReflectClass;
 	protected OnReflectEvent mEventHandler;
+	
+	public ReflectMethod(ReflectClass reflectClass, OnReflectEvent eventHandler, Method method) {
+		mMethod = method;
+		mReflectClass = reflectClass;
+		mEventHandler = eventHandler;
+	}
 	
 	public ReflectMethod(ReflectClass reflectClass, OnReflectEvent eventHandler, String methodName, Match match, Boolean deepSearch, ReflectParameters parameterTypes) {
 		String className = reflectClass.getObject().getName();
@@ -99,7 +107,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 		Boolean isStatic = Modifier.isStatic(mMethod.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this);
+			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -110,7 +118,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 			return mMethod.invoke(isStatic ? null : resolveReceiverInternal(receiver), args);
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this);
+			mEventHandler.onEvent(Event.ERROR, this, null);
 			
 			throw new ReflectException(e);
 		}
@@ -121,7 +129,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 		Boolean isStatic = Modifier.isStatic(mMethod.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this);
+			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -135,7 +143,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 			return invokeOriginalMethod.getObject().invoke(mMethod, isStatic ? null : resolveReceiverInternal(receiver), args);
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this);
+			mEventHandler.onEvent(Event.ERROR, this, null);
 			
 			throw new ReflectException(e);
 		}
@@ -185,8 +193,38 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mMethod.getDeclaringClass().getClassLoader());
 			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.BEST, Member.class, "de.robv.android.xposed.XC_MethodHook");
+			ArrayList<Object> unhooks = oMethodUnhookCache.get(mMethod);
 			
-			hookMethod.invoke(false, mMethod, hook);
+			if (unhooks == null) {
+				unhooks = new ArrayList<Object>();
+			}
+			
+			unhooks.add(hookMethod.invoke(mMethod, hook));
+			
+			oMethodUnhookCache.put(mMethod, unhooks);
+			
+			mEventHandler.onEvent(Event.HOOK, this, mMethod);
+			
+		} catch (ReflectException e) {
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public void removeInjection() {
+		try {
+			ArrayList<Object> unhooks = oMethodUnhookCache.get(mMethod);
+			
+			if (unhooks != null && unhooks.size() > 0) {
+				ReflectClass xposedUnhook = ReflectClass.forName("de.robv.android.xposed.XC_MethodHook$Unhook", mMethod.getDeclaringClass().getClassLoader());
+				ReflectMethod unhookMethod = xposedUnhook.findMethod("unhook");
+				
+				for (Object unhook : unhooks) {
+					xposedUnhook.setReceiver(unhook);
+					unhookMethod.invoke();
+				}
+				
+				mEventHandler.onEvent(Event.UNHOOK, this, mMethod);
+			}
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -216,7 +254,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> implements Refle
 				
 				newMethod.mReflectClass = new ReflectClass(newReceiver);
 				newMethod.mMethod = mMethod;
-				newMethod.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newMethod);
+				newMethod.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newMethod, null);
 				
 				return newMethod;
 			}

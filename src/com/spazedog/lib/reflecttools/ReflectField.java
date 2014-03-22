@@ -84,7 +84,7 @@ public class ReflectField extends ReflectMember<ReflectField> implements Reflect
 		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this);
+			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -95,7 +95,7 @@ public class ReflectField extends ReflectMember<ReflectField> implements Reflect
 			mField.set(isStatic ? null : resolveReceiverInternal(receiver), value);
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this);
+			mEventHandler.onEvent(Event.ERROR, this, null);
 			
 			throw new ReflectException(e);
 		}
@@ -106,7 +106,7 @@ public class ReflectField extends ReflectMember<ReflectField> implements Reflect
 		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this);
+			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -117,7 +117,7 @@ public class ReflectField extends ReflectMember<ReflectField> implements Reflect
 			return mField.get(isStatic ? null : resolveReceiverInternal(receiver));
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this);
+			mEventHandler.onEvent(Event.ERROR, this, null);
 			
 			throw new ReflectException(e);
 		}
@@ -166,7 +166,7 @@ public class ReflectField extends ReflectMember<ReflectField> implements Reflect
 				
 				newField.mReflectClass = new ReflectClass(newReceiver);
 				newField.mField = mField;
-				newField.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newField);
+				newField.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newField, null);
 				
 				return newField;
 			}
