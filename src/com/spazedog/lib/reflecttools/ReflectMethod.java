@@ -29,11 +29,10 @@ import java.util.HashMap;
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent.Event;
 import com.spazedog.lib.reflecttools.apache.Common;
-import com.spazedog.lib.reflecttools.utils.ReflectCallable;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
-public class ReflectMethod extends ReflectMember<ReflectMethod> implements ReflectCallable<Method> {
+public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	protected final static HashMap<String, Method> oMethodCache = new HashMap<String, Method>();
 	protected final static HashMap<Method, ArrayList<Object>> oMethodUnhookCache = new HashMap<Method, ArrayList<Object>>();
 	

@@ -26,11 +26,10 @@ import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
 import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent.Event;
-import com.spazedog.lib.reflecttools.utils.ReflectCallable;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
-public class ReflectField extends ReflectMember<ReflectField> implements ReflectCallable<Field> {
+public class ReflectField extends ReflectMember<ReflectField> {
 	protected final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
 	
 	protected Field mField;

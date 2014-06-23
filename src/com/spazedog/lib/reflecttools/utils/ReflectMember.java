@@ -27,7 +27,7 @@ import java.util.List;
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 
-public abstract class ReflectMember<T> {
+public abstract class ReflectMember<T> implements ReflectCallable<Member> {
 	public static enum Match { BEST, EXACT }
 	
 	public abstract ReflectClass getReflectClass();
