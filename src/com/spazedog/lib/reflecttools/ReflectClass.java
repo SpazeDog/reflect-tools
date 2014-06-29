@@ -47,55 +47,35 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	protected OnReceiverListener mOnReceiverListener;
 	protected OnErrorListener mOnErrorListener;
 	
-	final OnReflectEvent mHandler = new OnReflectEvent();
-	
-	public static class OnReflectEvent {
-		private OnReflectEvent(){}
-		
-		public static enum Event { RECEIVER, ERROR, HANDLER, HOOK, UNHOOK }
-		
-		public Object onEvent(Event event, ReflectMember<?> member, Object data) {
-			ReflectClass thisObject = member.getReflectClass();
-			
-			switch (event) {
-				case RECEIVER:
-					if (thisObject.mOnReceiverListener != null) {
-						return thisObject.mOnReceiverListener.onReceiver(member);
-					}
-					break;
-					
-				case ERROR:
-					if (thisObject.mOnErrorListener != null) {
-						thisObject.mOnErrorListener.onError(member);
-					}
-					break;
-					
-				case HANDLER:
-					return member.getReflectClass().mHandler;
-					
-				case HOOK:
-				case UNHOOK:
-					ArrayList<Member> cache = oInjectionCache.get(thisObject.mClass);
-					Member content = (Member) data;
-					
-					if (cache == null) {
-						cache = new ArrayList<Member>();
-					}
-					
-					if (event == Event.HOOK && cache.indexOf(content) < 0) {
-						cache.add(content);
-						
-					} else if (event == Event.UNHOOK && cache.indexOf(content) >= 0) {
-						cache.remove(content);
-					}
-					
-					oInjectionCache.put(thisObject.mClass, cache);
-					
-					break;
-			}
-			
-			return null;
+	protected Object triggerReceiverEvent(ReflectMember<?> member) {
+		if (mOnReceiverListener != null) {
+			return mOnReceiverListener.onReceiver(member);
 		}
+		
+		return null;
+	}
+	
+	protected void triggerErrorEvent(ReflectMember<?> member) {
+		if (mOnReceiverListener != null) {
+			mOnErrorListener.onError(member);
+		}
+	}
+	
+	protected void handleHookCache(Member member, Boolean cacheHookedMember) {
+		ArrayList<Member> cache = oInjectionCache.get(mClass);
+		
+		if (cache == null) {
+			cache = new ArrayList<Member>();
+		}
+		
+		if (cacheHookedMember && cache.indexOf(member) < 0) {
+			cache.add(member);
+			
+		} else if (!cacheHookedMember && cache.indexOf(member) >= 0) {
+			cache.remove(member);
+		}
+		
+		oInjectionCache.put(mClass, cache);
 	}
 	
 	public static interface OnReceiverListener {
@@ -206,10 +186,10 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 			
 			for (Member member : members) {
 				if (methodName == null) {
-					new ReflectConstructor(this, mHandler, (Constructor<?>) member).inject(hook); count++;
+					new ReflectConstructor(this, (Constructor<?>) member).inject(hook); count++;
 					
 				} else if (member.getName().equals(methodName)) {
-					new ReflectMethod(this, mHandler, (Method) member).inject(hook); count++;
+					new ReflectMethod(this, (Method) member).inject(hook); count++;
 				}
 			}
 			
@@ -236,10 +216,10 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 			for (Member member : members) {
 				try {
 					if (member instanceof Constructor) {
-						new ReflectConstructor(this, mHandler, (Constructor<?>) member).removeInjection();
+						new ReflectConstructor(this, (Constructor<?>) member).removeInjection();
 						
 					} else {
-						new ReflectMethod(this, mHandler, (Method) member).removeInjection();
+						new ReflectMethod(this, (Method) member).removeInjection();
 					}
 					
 				} catch (ReflectException e) {}
@@ -254,10 +234,10 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 			for (Member member : members) {
 				try {
 					if (methodName == null && member instanceof Constructor) {
-						new ReflectConstructor(this, mHandler, (Constructor<?>) member).removeInjection();
+						new ReflectConstructor(this, (Constructor<?>) member).removeInjection();
 						
 					} else if (methodName != null && member.getName().equals(methodName)) {
-						new ReflectMethod(this, mHandler, (Method) member).removeInjection();
+						new ReflectMethod(this, (Method) member).removeInjection();
 					}
 					
 				} catch (ReflectException e) {}
@@ -317,7 +297,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectConstructor findConstructor() {
 		try {
-			return new ReflectConstructor(this, mHandler, Match.BEST, null);
+			return new ReflectConstructor(this, Match.BEST, null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -326,7 +306,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectConstructor findConstructor(Match match, Object... paremeterTypes) {
 		try {
-			return new ReflectConstructor(this, mHandler, match, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
+			return new ReflectConstructor(this, match, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -335,7 +315,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectConstructor findConstructor(Match match, ReflectParameters parameters) {
 		try {
-			return new ReflectConstructor(this, mHandler, match, parameters);
+			return new ReflectConstructor(this, match, parameters);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -344,7 +324,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethod(String methodName) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, Match.BEST, false, null);
+			return new ReflectMethod(this, methodName, Match.BEST, false, null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -353,7 +333,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethod(String methodName, Match match, Object... paremeterTypes) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, match, false, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
+			return new ReflectMethod(this, methodName, match, false, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -362,7 +342,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethod(String methodName, Match match, ReflectParameters parameters) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, match, false, parameters);
+			return new ReflectMethod(this, methodName, match, false, parameters);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -371,7 +351,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethodDeep(String methodName) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, Match.BEST, true, null);
+			return new ReflectMethod(this, methodName, Match.BEST, true, null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -380,7 +360,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethodDeep(String methodName, Match match, Object... paremeterTypes) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, match, true, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
+			return new ReflectMethod(this, methodName, match, true, paremeterTypes.length > 0 ? new ReflectParameterTypes(paremeterTypes) : null);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -389,7 +369,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectMethod findMethodDeep(String methodName, Match match, ReflectParameters parameters) {
 		try {
-			return new ReflectMethod(this, mHandler, methodName, match, true, parameters);
+			return new ReflectMethod(this, methodName, match, true, parameters);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -398,7 +378,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectField findField(String fieldName) {
 		try {
-			return new ReflectField(this, mHandler, fieldName, false);
+			return new ReflectField(this, fieldName, false);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -407,7 +387,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectField findFieldDeep(String fieldName) {
 		try {
-			return new ReflectField(this, mHandler, fieldName, true);
+			return new ReflectField(this, fieldName, true);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);

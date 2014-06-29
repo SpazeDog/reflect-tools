@@ -25,27 +25,23 @@ import java.lang.reflect.Member;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
-import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent.Event;
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
 public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
-	protected final static HashMap<String, Constructor<?>> oConstructorCache = new HashMap<String, Constructor<?>>();
-	protected final static HashMap<Constructor<?>, ArrayList<Object>> oConstructorUnhookCache = new HashMap<Constructor<?>, ArrayList<Object>>();
+	private final static HashMap<String, Constructor<?>> oConstructorCache = new HashMap<String, Constructor<?>>();
+	private final static HashMap<Constructor<?>, ArrayList<Object>> oConstructorUnhookCache = new HashMap<Constructor<?>, ArrayList<Object>>();
 	
-	protected Constructor<?> mConstructor;
-	protected ReflectClass mReflectClass;
-	protected OnReflectEvent mEventHandler;
+	private Constructor<?> mConstructor;
+	private ReflectClass mReflectClass;
 	
-	public ReflectConstructor(ReflectClass reflectClass, OnReflectEvent eventHandler, Constructor<?> constructor) {
+	public ReflectConstructor(ReflectClass reflectClass, Constructor<?> constructor) {
 		mConstructor = constructor;
 		mReflectClass = reflectClass;
-		mEventHandler = eventHandler;
 	}
 	
-	public ReflectConstructor(ReflectClass reflectClass, OnReflectEvent eventHandler, Match match, ReflectParameters parameterTypes) {
+	public ReflectConstructor(ReflectClass reflectClass, Match match, ReflectParameters parameterTypes) {
 		String className = reflectClass.getObject().getName();
 		String cacheName = className + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match == Match.BEST ? "#B" : "#E");
 		
@@ -87,16 +83,15 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 		
 		mConstructor = oConstructorCache.get(cacheName);
 		mReflectClass = reflectClass;
-		mEventHandler = eventHandler;
 	}
-	
-	private ReflectConstructor() {}
 	
 	public Object invoke(Object... args) {
 		try {
 			return mConstructor.newInstance(args);
 			
 		} catch (Throwable e) {
+			mReflectClass.triggerErrorEvent(this);
+			
 			throw new ReflectException(e);
 		}
 	}
@@ -109,6 +104,8 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 			return invokeOriginalMethod.getObject().invoke(mConstructor, null, args);
 			
 		} catch (Throwable e) {
+			mReflectClass.triggerErrorEvent(this);
+			
 			throw new ReflectException(e);
 		}
 	}
@@ -167,7 +164,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 			
 			oConstructorUnhookCache.put(mConstructor, unhooks);
 			
-			mEventHandler.onEvent(Event.HOOK, this, mConstructor);
+			mReflectClass.handleHookCache(mConstructor, true);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -187,7 +184,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 					unhookMethod.invoke();
 				}
 				
-				mEventHandler.onEvent(Event.UNHOOK, this, mConstructor);
+				mReflectClass.handleHookCache(mConstructor, false);
 			}
 			
 		} catch (ReflectException e) {
@@ -214,13 +211,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 			Object newReceiver = resolveReceiverInternal(receiver);
 			
 			if (newReceiver != receiver) {
-				ReflectConstructor newConstructor = new ReflectConstructor();
-				
-				newConstructor.mReflectClass = new ReflectClass(newReceiver);
-				newConstructor.mConstructor = mConstructor;
-				newConstructor.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newConstructor, null);
-				
-				return newConstructor;
+				return new ReflectConstructor(new ReflectClass(newReceiver), mConstructor);
 			}
 		}
 		

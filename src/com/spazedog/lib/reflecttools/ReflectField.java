@@ -20,23 +20,26 @@
 
 package com.spazedog.lib.reflecttools;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
-import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent;
-import com.spazedog.lib.reflecttools.ReflectClass.OnReflectEvent.Event;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
 public class ReflectField extends ReflectMember<ReflectField> {
-	protected final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
+	private final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
 	
-	protected Field mField;
-	protected ReflectClass mReflectClass;
-	protected OnReflectEvent mEventHandler;
+	private Field mField;
+	private ReflectClass mReflectClass;
 	
-	public ReflectField(ReflectClass reflectClass, OnReflectEvent eventHandler, String fieldName, Boolean deepSearch) {
+	public ReflectField(ReflectClass reflectClass, Field field) {
+		mField = field;
+		mReflectClass = reflectClass;
+	}
+	
+	public ReflectField(ReflectClass reflectClass, String fieldName, Boolean deepSearch) {
 		String className = reflectClass.getObject().getName();
 		String cacheName = className + "." + fieldName;
 		
@@ -73,17 +76,14 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		
 		mField = oFieldCache.get(cacheName);
 		mReflectClass = reflectClass;
-		mEventHandler = eventHandler;
 	}
-	
-	private ReflectField() {}
 	
 	public void setValue(Object value) {
 		Object receiver = mReflectClass.getReceiver();
 		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
+			receiver = mReflectClass.triggerReceiverEvent(this);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -94,7 +94,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 			mField.set(isStatic ? null : resolveReceiverInternal(receiver), value);
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this, null);
+			mReflectClass.triggerErrorEvent(this);
 			
 			throw new ReflectException(e);
 		}
@@ -105,7 +105,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
 		
 		if (!isStatic && receiver == null) {
-			receiver = mEventHandler.onEvent(Event.RECEIVER, this, null);
+			receiver = mReflectClass.triggerReceiverEvent(this);
 			
 			if (receiver == null) {
 				receiver = mReflectClass.getReceiver();
@@ -116,7 +116,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 			return mField.get(isStatic ? null : resolveReceiverInternal(receiver));
 			
 		} catch (Throwable e) {
-			mEventHandler.onEvent(Event.ERROR, this, null);
+			mReflectClass.triggerErrorEvent(this);
 			
 			throw new ReflectException(e);
 		}
@@ -161,13 +161,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 			Object newReceiver = resolveReceiverInternal(receiver);
 			
 			if (newReceiver != receiver) {
-				ReflectField newField = new ReflectField();
-				
-				newField.mReflectClass = new ReflectClass(newReceiver);
-				newField.mField = mField;
-				newField.mEventHandler = (OnReflectEvent) mEventHandler.onEvent(Event.HANDLER, newField, null);
-				
-				return newField;
+				return new ReflectField(new ReflectClass(newReceiver), mField);
 			}
 		}
 		
