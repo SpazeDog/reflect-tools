@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.spazedog.lib.reflecttools"
-    android:versionCode="2"
-    android:versionName="2.0.2" >
+    android:versionCode="3"
+    android:versionName="2.0.4" >
 
     <application
         android:label="ReflectTools" >
