@@ -22,4 +22,5 @@ package com.spazedog.lib.reflecttools.utils;
 
 public interface ReflectCallable<T> {
 	public T getObject();
+	public Boolean exists();
 }

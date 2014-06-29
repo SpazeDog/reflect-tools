@@ -20,13 +20,13 @@
 
 package com.spazedog.lib.reflecttools;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
+import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
 
 public class ReflectField extends ReflectMember<ReflectField> {
 	private final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
@@ -39,7 +39,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		mReflectClass = reflectClass;
 	}
 	
-	public ReflectField(ReflectClass reflectClass, String fieldName, Boolean deepSearch) {
+	public ReflectField(ReflectClass reflectClass, String fieldName, Match match, Boolean deepSearch) {
 		String className = reflectClass.getObject().getName();
 		String cacheName = className + "." + fieldName;
 		
@@ -70,12 +70,23 @@ public class ReflectField extends ReflectMember<ReflectField> {
 				oFieldCache.put(cacheName, field);
 				
 			} else {
-				throw new ReflectException("NoSuchFieldException: " + cacheName, throwable);
+				if (!match.suppress()) {
+					throw new ReflectException("NoSuchFieldException: " + cacheName, throwable);
+				}
 			}
 		}
 		
 		mField = oFieldCache.get(cacheName);
 		mReflectClass = reflectClass;
+	}
+	
+	public void setValueOnReceiver(Object receiver, Object value) {
+		try {
+			mField.set(resolveReceiverInternal(receiver), value);
+			
+		} catch (Throwable e) {
+			throw new ReflectException(e);
+		}
 	}
 	
 	public void setValue(Object value) {
@@ -96,6 +107,15 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		} catch (Throwable e) {
 			mReflectClass.triggerErrorEvent(this);
 			
+			throw new ReflectException(e);
+		}
+	}
+	
+	public Object getValueFromReceiver(Object receiver) {
+		try {
+			return mField.get(resolveReceiverInternal(receiver));
+			
+		} catch (Throwable e) {
 			throw new ReflectException(e);
 		}
 	}
@@ -124,7 +144,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	
 	public ReflectClass getValueToInstance() {
 		try {
-			return new ReflectClass(getValue());
+			return new ReflectClass(getValue(), Match.DEFAULT);
 			
 		} catch (Throwable e) {
 			throw new ReflectException(e);
@@ -140,6 +160,11 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		} catch (Throwable e) {
 			throw new ReflectException(e);
 		}
+	}
+	
+	@Override
+	public Boolean exists() {
+		return mField != null;
 	}
 	
 	@Override
@@ -161,7 +186,7 @@ public class ReflectField extends ReflectMember<ReflectField> {
 			Object newReceiver = resolveReceiverInternal(receiver);
 			
 			if (newReceiver != receiver) {
-				return new ReflectField(new ReflectClass(newReceiver), mField);
+				return new ReflectField(new ReflectClass(newReceiver, Match.DEFAULT), mField);
 			}
 		}
 		

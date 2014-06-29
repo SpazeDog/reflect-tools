@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.apache.Common;
+import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
@@ -43,7 +44,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	
 	public ReflectConstructor(ReflectClass reflectClass, Match match, ReflectParameters parameterTypes) {
 		String className = reflectClass.getObject().getName();
-		String cacheName = className + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match == Match.BEST ? "#B" : "#E");
+		String cacheName = className + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match.getMatch() > 0 ? "#B" : "#E");
 		
 		if (!oConstructorCache.containsKey(cacheName)) {
 			Throwable throwable = null;
@@ -58,7 +59,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 				if (throwable == null)
 					throwable = e;
 				
-				if (match != Match.EXACT) {
+				if (match.getMatch() > 0) {
 					Constructor<?>[] constructors = clazz.getDeclaredConstructors();
 					
 					for (int x=0; x < constructors.length; x++) {
@@ -77,7 +78,9 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 				oConstructorCache.put(cacheName, constructor);
 				
 			} else {
-				throw new ReflectException("NoSuchMethodException: " + cacheName, throwable);
+				if (!match.suppress()) {
+					throw new ReflectException("NoSuchMethodException: " + cacheName, throwable);
+				}
 			}
 		}
 		
@@ -99,9 +102,9 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	public Object invokeOriginal(Object... args) {
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mConstructor.getDeclaringClass().getClassLoader());
-			ReflectMethod invokeOriginalMethod = xposedBridge.findMethod("invokeOriginalMethod", Match.BEST, Member.class, Object.class, Object[].class);
+			ReflectMethod invokeOriginalMethod = xposedBridge.findMethod("invokeOriginalMethod", Match.DEFAULT, Member.class, Object.class, Object[].class);
 			
-			return invokeOriginalMethod.getObject().invoke(mConstructor, null, args);
+			return invokeOriginalMethod.getObject().invoke(null, mConstructor, null, args);
 			
 		} catch (Throwable e) {
 			mReflectClass.triggerErrorEvent(this);
@@ -112,7 +115,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	
 	public ReflectClass invokeToInstance(Object... args) {
 		try {
-			return new ReflectClass(invoke(args));
+			return new ReflectClass(invoke(args), Match.DEFAULT);
 			
 		} catch (Throwable e) {
 			throw new ReflectException(e);
@@ -121,7 +124,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	
 	public ReflectClass invokeOriginalToInstance(Object... args) {
 		try {
-			return new ReflectClass(invokeOriginal(args));
+			return new ReflectClass(invokeOriginal(args), Match.DEFAULT);
 			
 		} catch (Throwable e) {
 			throw new ReflectException(e);
@@ -153,7 +156,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	public void inject(Object hook) {
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mConstructor.getDeclaringClass().getClassLoader());
-			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.BEST, Member.class, "de.robv.android.xposed.XC_MethodHook");
+			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.DEFAULT, Member.class, "de.robv.android.xposed.XC_MethodHook");
 			ArrayList<Object> unhooks = oConstructorUnhookCache.get(mConstructor);
 			
 			if (unhooks == null) {
@@ -191,6 +194,11 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 			throw new ReflectException(e.getMessage(), e);
 		}
 	}
+	
+	@Override
+	public Boolean exists() {
+		return mConstructor != null;
+	}
 
 	@Override
 	public Constructor<?> getObject() {
@@ -211,7 +219,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 			Object newReceiver = resolveReceiverInternal(receiver);
 			
 			if (newReceiver != receiver) {
-				return new ReflectConstructor(new ReflectClass(newReceiver), mConstructor);
+				return new ReflectConstructor(new ReflectClass(newReceiver, Match.DEFAULT), mConstructor);
 			}
 		}
 		

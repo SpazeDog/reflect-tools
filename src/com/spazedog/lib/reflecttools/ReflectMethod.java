@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.apache.Common;
+import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
 
@@ -44,7 +45,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	
 	public ReflectMethod(ReflectClass reflectClass, String methodName, Match match, Boolean deepSearch, ReflectParameters parameterTypes) {
 		String className = reflectClass.getObject().getName();
-		String cacheName = className + "." + methodName + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match == Match.BEST ? "#B" : "#E");
+		String cacheName = className + "." + methodName + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match.getMatch() > 0 ? "#B" : "#E");
 				
 		if (!oMethodCache.containsKey(cacheName)) {
 			ReflectClass currentClass = reflectClass;
@@ -63,7 +64,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 						if (throwable == null)
 							throwable = e;
 						
-						if (match != Match.EXACT) {
+						if (match.getMatch() > 0) {
 							Method[] methods = clazz.getDeclaredMethods();
 							
 							for (int x=0; x < methods.length; x++) {
@@ -86,12 +87,23 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 				oMethodCache.put(cacheName, method);
 				
 			} else {
-				throw new ReflectException("NoSuchMethodException: " + cacheName, throwable);
+				if (!match.suppress()) {
+					throw new ReflectException("NoSuchMethodException: " + cacheName, throwable);
+				}
 			}
 		}
 		
 		mMethod = oMethodCache.get(cacheName);
 		mReflectClass = reflectClass;
+	}
+	
+	public Object invokeReceiver(Object receiver, Object... args) {
+		try {
+			return mMethod.invoke(resolveReceiverInternal(receiver), args);
+			
+		} catch (Throwable e) {
+			throw new ReflectException(e);
+		}
 	}
 	
 	public Object invoke(Object... args) {
@@ -130,9 +142,9 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 		
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mMethod.getDeclaringClass().getClassLoader());
-			ReflectMethod invokeOriginalMethod = xposedBridge.findMethod("invokeOriginalMethod", Match.BEST, Member.class, Object.class, Object[].class);
+			ReflectMethod invokeOriginalMethod = xposedBridge.findMethod("invokeOriginalMethod", Match.DEFAULT, Member.class, Object.class, Object[].class);
 			
-			return invokeOriginalMethod.getObject().invoke(mMethod, isStatic ? null : resolveReceiverInternal(receiver), args);
+			return invokeOriginalMethod.getObject().invoke(null, mMethod, isStatic ? null : resolveReceiverInternal(receiver), args);
 			
 		} catch (Throwable e) {
 			mReflectClass.triggerErrorEvent(this);
@@ -143,7 +155,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	
 	public ReflectClass invokeToInstance(Object... args) {
 		try {
-			return new ReflectClass(invoke(args));
+			return new ReflectClass(invoke(args), Match.DEFAULT);
 			
 		} catch (Throwable e) {
 			throw new ReflectException(e);
@@ -152,7 +164,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	
 	public ReflectClass invokeOriginalToInstance(Object... args) {
 		try {
-			return new ReflectClass(invokeOriginal(args));
+			return new ReflectClass(invokeOriginal(args), Match.DEFAULT);
 			
 		} catch (Throwable e) {
 			throw new ReflectException(e);
@@ -184,7 +196,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	public void inject(Object hook) {
 		try {
 			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mMethod.getDeclaringClass().getClassLoader());
-			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.BEST, Member.class, "de.robv.android.xposed.XC_MethodHook");
+			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.DEFAULT, Member.class, "de.robv.android.xposed.XC_MethodHook");
 			ArrayList<Object> unhooks = oMethodUnhookCache.get(mMethod);
 			
 			if (unhooks == null) {
@@ -222,6 +234,11 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 			throw new ReflectException(e.getMessage(), e);
 		}
 	}
+	
+	@Override
+	public Boolean exists() {
+		return mMethod != null;
+	}
 
 	@Override
 	public Method getObject() {
@@ -242,7 +259,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 			Object newReceiver = resolveReceiverInternal(receiver);
 			
 			if (newReceiver != receiver) {
-				return new ReflectMethod(new ReflectClass(newReceiver), mMethod);
+				return new ReflectMethod(new ReflectClass(newReceiver, Match.DEFAULT), mMethod);
 			}
 		}
 		

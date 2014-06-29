@@ -29,9 +29,9 @@ import java.util.HashMap;
 import android.os.IBinder;
 
 import com.spazedog.lib.reflecttools.utils.ReflectCallable;
+import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.lib.reflecttools.utils.ReflectMember;
-import com.spazedog.lib.reflecttools.utils.ReflectMember.Match;
 import com.spazedog.lib.reflecttools.utils.ReflectMember.ReflectParameters;
 import com.spazedog.lib.reflecttools.utils.ReflectMember.ReflectParameters.ReflectArgumentTypes;
 import com.spazedog.lib.reflecttools.utils.ReflectMember.ReflectParameters.ReflectParameterTypes;
@@ -86,19 +86,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 		public void onError(ReflectMember<?> member);
 	}
 	
-	public static ReflectClass forName(String className) {
-		return new ReflectClass(className, null);
-	}
-	
-	public static ReflectClass forName(String className, ClassLoader classLoader) {
-		return new ReflectClass(className, classLoader);
-	}
-	
-	public ReflectClass(String className) {
-		this(className, null);
-	}
-	
-	public ReflectClass(String className, ClassLoader classLoader) {
+	protected static Class<?> internalClassLocator(String className, ClassLoader classLoader) {
 		if (!oClassCache.containsKey(className)) {
 			Class<?> clazz = null;
 			Throwable throwable = null;
@@ -121,19 +109,106 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 			}
 		}
 		
-		mClass = oClassCache.get(className);
+		return oClassCache.get(className);
 	}
 	
-	public ReflectClass(Object clazz) {
-		mClass = clazz instanceof Class ? (Class<?>) clazz : 
-			clazz instanceof ReflectClass ? ((ReflectClass) clazz).getObject() : clazz.getClass();
+	public static ReflectClass forName(String className) {
+		try {
+			return forName(className, null, Match.DEFAULT);
 			
-		mReceiver = clazz instanceof Class ? null : 
-			clazz instanceof ReflectClass ? ((ReflectClass) clazz).getReceiver() : clazz;
-		
-		if (!oClassCache.containsKey( mClass.getName() )) {
-			oClassCache.put(mClass.getName(), mClass);
+		} catch (ReflectException e) { throw new ReflectException(e.getMessage(), e); }
+	}
+	
+	public static ReflectClass forName(String className, Match match) {
+		try {
+			return forName(className, null, match);
+			
+		} catch (ReflectException e) { throw new ReflectException(e.getMessage(), e); }
+	}
+	
+	public static ReflectClass forName(String className, ClassLoader classLoader) {
+		try {
+			return forName(className, classLoader, Match.DEFAULT);
+			
+		} catch (ReflectException e) { throw new ReflectException(e.getMessage(), e); }
+	}
+	
+	public static ReflectClass forName(String className, ClassLoader classLoader, Match match) {
+		try {
+			return new ReflectClass(className, classLoader, match);
+			
+		} catch (ReflectException e) { 
+			throw new ReflectException(e.getMessage(), e);
 		}
+	}
+	
+	public static ReflectClass forClass(Class<?> clazz) {
+		try {
+			return forClass(clazz, Match.DEFAULT);
+			
+		} catch (ReflectException e) { throw new ReflectException(e.getMessage(), e); }
+	}
+	
+	public static ReflectClass forClass(Class<?> clazz, Match match) {
+		try {
+			return new ReflectClass(clazz, match);
+			
+		} catch (ReflectException e) { 
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public static ReflectClass forReceiver(Object receiver) {
+		try {
+			return forReceiver(receiver, Match.DEFAULT);
+			
+		} catch (ReflectException e) { throw new ReflectException(e.getMessage(), e); }
+	}
+	
+	public static ReflectClass forReceiver(Object receiver, Match match) {
+		try {
+			return new ReflectClass(receiver, match);
+			
+		} catch (ReflectException e) { 
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public ReflectClass(String className, ClassLoader classLoader, Match match) {
+		Class<?> clazz = null;
+		
+		try {
+			clazz = internalClassLocator(className, classLoader);
+			
+		} catch (ReflectException e) { 
+			if (!match.suppress()) {
+				throw new ReflectException(e.getMessage(), e); 
+			}
+		}
+		
+		mClass = clazz;
+	}
+	
+	public ReflectClass(Class<?> clazz, Match match) {
+		if (clazz == null && !match.suppress()) {
+			throw new ReflectException("Class Object is NULL", null);
+		}
+		
+		mClass = clazz;
+	}
+	
+	public ReflectClass(Object receiver, Match match) {
+		if (receiver == null && !match.suppress()) {
+			throw new ReflectException("Receiver Object is NULL", null);
+		}
+		
+		mClass = receiver != null ? receiver.getClass() : null;
+		mReceiver = receiver;
+	}
+	
+	@Override
+	public Boolean exists() {
+		return mClass != null;
 	}
 
 	@Override
@@ -162,7 +237,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 				} catch (IllegalArgumentException e) {}
 				
 				if (parent != null) {
-					return new ReflectClass(parent);
+					return new ReflectClass(parent, Match.DEFAULT);
 				}
 				
 			} else {
@@ -170,7 +245,7 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 				Integer index = clazzName.lastIndexOf("$");
 				
 				if (index > 0) {
-					return new ReflectClass(clazzName.substring(0, index), mClass.getClassLoader());
+					return new ReflectClass(clazzName.substring(0, index), mClass.getClassLoader(), Match.DEFAULT);
 				}
 			}
 		
@@ -378,7 +453,16 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectField findField(String fieldName) {
 		try {
-			return new ReflectField(this, fieldName, false);
+			return findField(fieldName, Match.DEFAULT);
+			
+		} catch (ReflectException e) {
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public ReflectField findField(String fieldName, Match match) {
+		try {
+			return new ReflectField(this, fieldName, match, false);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
@@ -387,7 +471,16 @@ public class ReflectClass implements ReflectCallable<Class<?>> {
 	
 	public ReflectField findFieldDeep(String fieldName) {
 		try {
-			return new ReflectField(this, fieldName, true);
+			return findFieldDeep(fieldName, Match.DEFAULT);
+			
+		} catch (ReflectException e) {
+			throw new ReflectException(e.getMessage(), e);
+		}
+	}
+	
+	public ReflectField findFieldDeep(String fieldName, Match match) {
+		try {
+			return new ReflectField(this, fieldName, match, true);
 			
 		} catch (ReflectException e) {
 			throw new ReflectException(e.getMessage(), e);
