@@ -1,7 +1,7 @@
 /*
 * This file is part of the ReflectTools Project: https://github.com/spazedog/reflect-tools
 *
-* Copyright (c) 2014 Daniel Bergløv
+* Copyright (c) 2015 Daniel Bergløv
 *
 * ReflectTools is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -18,9 +18,11 @@
 *
 */
 
-package com.spazedog.lib.reflecttools.utils;
+package com.spazedog.lib.reflecttools;
 
-public interface ReflectCallable<T> {
-	public T getObject();
-	public Boolean exists();
+public class ReflectException extends Error {
+	private static final long serialVersionUID = 744756325699271227L;
+	
+	public ReflectException(Throwable cause) { super(cause); }
+	public ReflectException(String detailMessage, Throwable cause) { super(detailMessage, cause); }
 }

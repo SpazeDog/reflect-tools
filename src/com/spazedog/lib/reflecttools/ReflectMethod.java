@@ -1,7 +1,7 @@
 /*
 * This file is part of the ReflectTools Project: https://github.com/spazedog/reflect-tools
 *
-* Copyright (c) 2014 Daniel Bergløv
+* Copyright (c) 2015 Daniel Bergløv
 *
 * ReflectTools is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -20,41 +20,52 @@
 
 package com.spazedog.lib.reflecttools;
 
-import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.apache.Common;
-import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
-import com.spazedog.lib.reflecttools.utils.ReflectException;
-import com.spazedog.lib.reflecttools.utils.ReflectMember;
+import com.spazedog.lib.reflecttools.bridge.MethodBridge;
+import com.spazedog.lib.reflecttools.bridge.MethodCydia;
+import com.spazedog.lib.reflecttools.bridge.MethodXposed;
 
 public class ReflectMethod extends ReflectMember<ReflectMethod> {
-	private final static HashMap<String, Method> oMethodCache = new HashMap<String, Method>();
-	private final static HashMap<Method, ArrayList<Object>> oMethodUnhookCache = new HashMap<Method, ArrayList<Object>>();
 	
-	private Method mMethod;
-	private ReflectClass mReflectClass;
+	/**
+	 * @hide
+	 */
+	protected final static HashMap<String, Method> oMethodCache = new HashMap<String, Method>();
 	
-	public ReflectMethod(ReflectClass reflectClass, Method method) {
-		mMethod = method;
-		mReflectClass = reflectClass;
-	}
-	
-	public ReflectMethod(ReflectClass reflectClass, String methodName, Match match, Boolean deepSearch, ReflectParameters parameterTypes) {
-		String className = reflectClass.getObject().getName();
-		String cacheName = className + "." + methodName + "[" + (parameterTypes == null ? "" : parameterTypes.toString()) + "]" + (match.getMatch() > 0 ? "#B" : "#E");
-				
-		if (!oMethodCache.containsKey(cacheName)) {
-			ReflectClass currentClass = reflectClass;
-			Method method = null;
+	/**
+	 * Search in a {@link ReflectClass} for a method. This method might also search super and parent classes, depending 
+	 * on the {@link Match} value parsed. 
+	 * 
+	 * @param methodName
+	 * 		The name of the method
+	 * 
+	 * @param match
+	 * 		How deep the method should search
+	 * 
+	 * @param rclass
+	 * 		The class to search in
+	 * 
+	 * @param parameterTypes
+	 * 		Parameter types of the method that should be found
+	 *
+	 * @throws ReflectMemberException
+	 * 		Thrown if the method could not be found
+	 */
+	public static Method findMethod(String methodName, Match match, ReflectClass rclass, ReflectParameterTypes parameterTypes) throws ReflectMemberException {
+		String className = rclass.getObject().getName();
+		String cacheName = className + "." + methodName + "(" + (parameterTypes == null ? "" : parameterTypes.toString()) + ")#" + match.name();
+		Method method = oMethodCache.get(cacheName);
+		
+		if (method == null) {
+			ReflectClass currentRClass = rclass;
 			Throwable throwable = null;
-			Class<?>[] parameters = parameterTypes == null ? new Class<?>[0] : parameterTypes.get();
+			Class<?>[] parameters = parameterTypes == null ? new Class<?>[0] : parameterTypes.toArray();
 			
 			do {
-				Class<?> clazz = currentClass.getObject();
+				Class<?> clazz = currentRClass.getObject();
 				
 				do {
 					try {
@@ -64,7 +75,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 						if (throwable == null)
 							throwable = e;
 						
-						if (match.getMatch() > 0) {
+						if (match != Match.EXACT) {
 							Method[] methods = clazz.getDeclaredMethods();
 							
 							for (int x=0; x < methods.length; x++) {
@@ -79,190 +90,155 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 					
 				} while (method == null && (clazz = clazz.getSuperclass()) != null);
 				
-			} while (method == null && deepSearch && (currentClass = currentClass.getParent()) != null);
+			} while (method == null && match == Match.DEEP && (currentRClass = currentRClass.getParent()) != null);
 			
-			if (method != null) {
-				method.setAccessible(true);
-
-				oMethodCache.put(cacheName, method);
+			if (method == null) {
+				throw new ReflectMemberException("Could not locate the method " + cacheName, throwable);
 				
 			} else {
-				if (!match.suppress()) {
-					throw new ReflectException("NoSuchMethodException: " + cacheName, throwable);
-				}
-			}
-		}
-		
-		mMethod = oMethodCache.get(cacheName);
-		mReflectClass = reflectClass;
-	}
-	
-	public Object invokeReceiver(Object receiver, Object... args) {
-		try {
-			return mMethod.invoke(resolveReceiverInternal(receiver), args);
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public Object invoke(Object... args) {
-		Object receiver = mReflectClass.getReceiver();
-		Boolean isStatic = Modifier.isStatic(mMethod.getModifiers());
-		
-		if (!isStatic && receiver == null) {
-			receiver = mReflectClass.triggerReceiverEvent(this);
-			
-			if (receiver == null) {
-				receiver = mReflectClass.getReceiver();
-			}
-		}
-		
-		try {
-			return mMethod.invoke(isStatic ? null : resolveReceiverInternal(receiver), args);
-			
-		} catch (Throwable e) {
-			mReflectClass.triggerErrorEvent(this);
-			
-			throw new ReflectException(e);
-		}
-	}
-	
-	public Object invokeOriginal(Object... args) {
-		Object receiver = mReflectClass.getReceiver();
-		Boolean isStatic = Modifier.isStatic(mMethod.getModifiers());
-		
-		if (!isStatic && receiver == null) {
-			receiver = mReflectClass.triggerReceiverEvent(this);
-			
-			if (receiver == null) {
-				receiver = mReflectClass.getReceiver();
-			}
-		}
-		
-		try {
-			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mMethod.getDeclaringClass().getClassLoader());
-			ReflectMethod invokeOriginalMethod = xposedBridge.findMethod("invokeOriginalMethod", Match.DEFAULT, Member.class, Object.class, Object[].class);
-			
-			return invokeOriginalMethod.getObject().invoke(null, mMethod, isStatic ? null : resolveReceiverInternal(receiver), args);
-			
-		} catch (Throwable e) {
-			mReflectClass.triggerErrorEvent(this);
-			
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass invokeToInstance(Object... args) {
-		try {
-			return new ReflectClass(invoke(args), Match.DEFAULT);
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass invokeOriginalToInstance(Object... args) {
-		try {
-			return new ReflectClass(invokeOriginal(args), Match.DEFAULT);
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass invokeForReceiver(Object... args) {
-		try {
-			mReflectClass.setReceiver(invoke(args));
-			
-			return mReflectClass;
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass invokeOriginalForReceiver(Object... args) {
-		try {
-			mReflectClass.setReceiver(invokeOriginal(args));
-			
-			return mReflectClass;
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public void inject(Object hook) {
-		try {
-			ReflectClass xposedBridge = ReflectClass.forName("de.robv.android.xposed.XposedBridge", mMethod.getDeclaringClass().getClassLoader());
-			ReflectMethod hookMethod = xposedBridge.findMethod("hookMethod", Match.DEFAULT, Member.class, "de.robv.android.xposed.XC_MethodHook");
-			ArrayList<Object> unhooks = oMethodUnhookCache.get(mMethod);
-			
-			if (unhooks == null) {
-				unhooks = new ArrayList<Object>();
+				method.setAccessible(true);
 			}
 			
-			unhooks.add(hookMethod.invoke(mMethod, hook));
-			
-			oMethodUnhookCache.put(mMethod, unhooks);
-			
-			mReflectClass.handleHookCache(mMethod, true);
-			
-		} catch (ReflectException e) {
-			throw new ReflectException(e.getMessage(), e);
+			oMethodCache.put(cacheName, method);
 		}
+		
+		return method;
 	}
 	
-	public void removeInjection() {
-		try {
-			ArrayList<Object> unhooks = oMethodUnhookCache.get(mMethod);
-			
-			if (unhooks != null && unhooks.size() > 0) {
-				ReflectClass xposedUnhook = ReflectClass.forName("de.robv.android.xposed.XC_MethodHook$Unhook", mMethod.getDeclaringClass().getClassLoader());
-				ReflectMethod unhookMethod = xposedUnhook.findMethod("unhook");
-				
-				for (Object unhook : unhooks) {
-					xposedUnhook.setReceiver(unhook);
-					unhookMethod.invoke();
-				}
-				
-				mReflectClass.handleHookCache(mMethod, false);
-			}
-			
-		} catch (ReflectException e) {
-			throw new ReflectException(e.getMessage(), e);
-		}
-	}
+	/**
+	 * @hide
+	 */
+	protected OnRequestReceiverListener mReceiverListener;
 	
-	@Override
-	public Boolean exists() {
-		return mMethod != null;
+	/**
+	 * @hide
+	 */
+	protected ReflectClass mReflectClass;
+	
+	/**
+	 * @hide
+	 */
+	protected Method mMethod;
+	
+	/**
+	 * @hide
+	 */
+	protected ReflectMethod(ReflectClass rclass, Method method) {
+		mReflectClass = rclass;
+		mMethod = method;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
-	public Method getObject() {
-		return mMethod;
+	public void setOnRequestReceiverListener(OnRequestReceiverListener listener) {
+		mReceiverListener = listener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public ReflectClass getReflectClass() {
 		return mReflectClass;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
-	public ReflectMethod resolveReceiver() {
-		Object receiver = mReflectClass.getReceiver();
-		Class<?> clazz = mMethod.getDeclaringClass();
-		
-		if (receiver != null && !clazz.isInstance(receiver)) {
-			Object newReceiver = resolveReceiverInternal(receiver);
+	public Method getObject() {
+		return mMethod;
+	}
+	
+	/**
+	 * Add a hook to this {@link Method}
+	 * 
+	 * @param callback
+	 * 		A callback instance that will be called whenever someone calls one of the {@link Method}
+	 * 
+	 * @throws ReflectMemberException
+	 * 		If it was not possible to add the hook due to missing injection systems, such as Xposed Framework and Cydia Substrate
+	 */
+	public void bridge(MethodBridge callback) throws ReflectMemberException {
+		if (ReflectUtils.bridgeInitiated()) {
+			try {
+				if (ReflectUtils.usesCydia()) {
+					MethodCydia.setupBridge(callback, mMethod);
+					
+				} else {
+					MethodXposed.setupBridge(callback, mMethod);
+				}
+				
+			} catch (Throwable e) {
+				throw new ReflectMemberException("Error while injecting runtime code to the " + "methods matching the name " + mMethod.getName() + " for " + mReflectClass.getObject().getName(), e);
+			}
 			
-			if (newReceiver != receiver) {
-				return new ReflectMethod(new ReflectClass(newReceiver, Match.DEFAULT), mMethod);
+		} else {
+			throw new ReflectMemberException("Cannot inject runtime code while no bridge has been initiated, attempted on " + "methods matching the name " + mMethod.getName() + " for " + mReflectClass.getObject().getName());
+		}
+	}
+	
+	/**
+	 * @see #invoke(Result, Object...)
+	 */
+	public Object invoke(Object... args) throws ReflectMemberException {
+		return invokeInternal(Result.DATA, args, false);
+	}
+	
+	/**
+	 * Invoke this {@link Method} 
+	 * 
+	 * @param result
+	 * 		Defines how to handle the result
+	 * 
+	 * @param args
+	 * 		Arguments to be parsed to the {@link Method}
+	 * 
+	 * @throws ReflectMemberException
+	 * 		Thrown if it failed to invoke the {@link Method}
+	 */
+	public Object invoke(Result result, Object... args) throws ReflectMemberException {
+		return invokeInternal(result, args, false);
+	}
+
+	/**
+	 * @hide
+	 */
+	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException {
+		Object receiver = null;
+		
+		if (!isStatic()) {
+			receiver = mReceiverListener != null ? mReceiverListener.onRequestReceiver(this) : null;
+			
+			if (receiver == null) {
+				receiver = getReceiver();
+				
+				if (receiver == null) {
+					throw new ReflectMemberException("Cannot invoke a non-static method without an accociated receiver, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName());
+				}
 			}
 		}
 		
-		return this;
+		Object data = null;
+		
+		try {
+			data = mMethod.invoke(receiver, args);
+			
+		} catch (Throwable e) {
+			throw new ReflectMemberException("Unable to invoke method, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName(), e);
+		}
+		
+		switch (result) {
+			case INSTANCE: 
+				return ReflectClass.fromReceiver(data);
+				
+			case RECEIVER: 
+				mReflectClass.setReceiver(data); 
+				
+			default:
+				return data;
+		}
 	}
 }

@@ -1,55 +1,45 @@
-/*
-* This file is part of the ReflectTools Project: https://github.com/spazedog/reflect-tools
-*
-* Copyright (c) 2014 Daniel Bergløv
-*
-* ReflectTools is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-
-* ReflectTools is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-
-* You should have received a copy of the GNU General Public License
-* along with ReflectTools. If not, see <http://www.gnu.org/licenses/>
-*
-*/
-
 package com.spazedog.lib.reflecttools;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Member;
 import java.util.HashMap;
 
-import com.spazedog.lib.reflecttools.utils.ReflectException;
-import com.spazedog.lib.reflecttools.utils.ReflectMember;
-import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
+import com.spazedog.lib.reflecttools.ReflectClass.ReflectClassException;
 
 public class ReflectField extends ReflectMember<ReflectField> {
-	private final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
 	
-	private Field mField;
-	private ReflectClass mReflectClass;
+	/**
+	 * @hide
+	 */
+	protected final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
 	
-	public ReflectField(ReflectClass reflectClass, Field field) {
-		mField = field;
-		mReflectClass = reflectClass;
-	}
-	
-	public ReflectField(ReflectClass reflectClass, String fieldName, Match match, Boolean deepSearch) {
-		String className = reflectClass.getObject().getName();
+	/**
+	 * Search in a {@link ReflectClass} for a {@link Field}. This method might also search super and parent classes, depending 
+	 * on the {@link Match} value parsed. 
+	 * 
+	 * @param fieldName
+	 * 		The name of the {@link Field}
+	 * 
+	 * @param match
+	 * 		How deep the method should search
+	 * 
+	 * @param rclass
+	 * 		The class to search in
+	 *
+	 * @throws ReflectMemberException
+	 * 		Thrown if the field could not be found
+	 */
+	public static Field findField(String fieldName, Match match, ReflectClass rclass) throws ReflectMemberException {
+		String className = rclass.getObject().getName();
 		String cacheName = className + "." + fieldName;
+		Field field = oFieldCache.get(cacheName);
 		
-		if (!oFieldCache.containsKey(cacheName)) {
-			ReflectClass currentClass = reflectClass;
-			Field field = null;
+		if (field == null) {
+			ReflectClass currentRClass = rclass;
 			Throwable throwable = null;
 			
 			do {
-				Class<?> clazz = currentClass.getObject();
+				Class<?> clazz = currentRClass.getObject();
 				
 				do {
 					try {
@@ -62,134 +52,149 @@ public class ReflectField extends ReflectMember<ReflectField> {
 					
 				} while (field == null && (clazz = clazz.getSuperclass()) != null);
 				
-			} while (field == null && deepSearch && (currentClass = currentClass.getParent()) != null);
+			} while (field == null && match == Match.DEEP && (currentRClass = currentRClass.getParent()) != null);
 			
-			if (field != null) {
-				field.setAccessible(true);
-
-				oFieldCache.put(cacheName, field);
+			if (field == null) {
+				throw new ReflectMemberException("Could not locate the field " + cacheName, throwable);
 				
 			} else {
-				if (!match.suppress()) {
-					throw new ReflectException("NoSuchFieldException: " + cacheName, throwable);
-				}
+				field.setAccessible(true);
 			}
+			
+			oFieldCache.put(cacheName, field);
 		}
 		
-		mField = oFieldCache.get(cacheName);
-		mReflectClass = reflectClass;
+		return field;
 	}
 	
-	public void setValueOnReceiver(Object receiver, Object value) {
-		try {
-			mField.set(resolveReceiverInternal(receiver), value);
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
+	/**
+	 * @hide
+	 */
+	protected OnRequestReceiverListener mReceiverListener;
 	
-	public void setValue(Object value) {
-		Object receiver = mReflectClass.getReceiver();
-		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
-		
-		if (!isStatic && receiver == null) {
-			receiver = mReflectClass.triggerReceiverEvent(this);
-			
-			if (receiver == null) {
-				receiver = mReflectClass.getReceiver();
-			}
-		}
-		
-		try {
-			mField.set(isStatic ? null : resolveReceiverInternal(receiver), value);
-			
-		} catch (Throwable e) {
-			mReflectClass.triggerErrorEvent(this);
-			
-			throw new ReflectException(e);
-		}
-	}
+	/**
+	 * @hide
+	 */
+	protected ReflectClass mReflectClass;
 	
-	public Object getValueFromReceiver(Object receiver) {
-		try {
-			return mField.get(resolveReceiverInternal(receiver));
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
+	/**
+	 * @hide
+	 */
+	protected Field mField;
 	
-	public Object getValue() {
-		Object receiver = mReflectClass.getReceiver();
-		Boolean isStatic = Modifier.isStatic(mField.getModifiers());
-		
-		if (!isStatic && receiver == null) {
-			receiver = mReflectClass.triggerReceiverEvent(this);
-			
-			if (receiver == null) {
-				receiver = mReflectClass.getReceiver();
-			}
-		}
-		
-		try {
-			return mField.get(isStatic ? null : resolveReceiverInternal(receiver));
-			
-		} catch (Throwable e) {
-			mReflectClass.triggerErrorEvent(this);
-			
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass getValueToInstance() {
-		try {
-			return new ReflectClass(getValue(), Match.DEFAULT);
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	public ReflectClass getValueForReceiver() {
-		try {
-			mReflectClass.setReceiver(getValue());
-			
-			return mReflectClass;
-			
-		} catch (Throwable e) {
-			throw new ReflectException(e);
-		}
-	}
-	
-	@Override
-	public Boolean exists() {
-		return mField != null;
-	}
-	
-	@Override
-	public Field getObject() {
-		return mField;
+	/**
+	 * @hide
+	 */
+	protected ReflectField(ReflectClass rclass, Field field) {
+		mReflectClass = rclass;
+		mField = field;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void setOnRequestReceiverListener(OnRequestReceiverListener listener) {
+		mReceiverListener = listener;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public ReflectClass getReflectClass() {
 		return mReflectClass;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
-	public ReflectField resolveReceiver() {
-		Object receiver = mReflectClass.getReceiver();
-		Class<?> clazz = mField.getDeclaringClass();
+	public Member getObject() {
+		return mField;
+	}
+	
+	/**
+	 * @see #getValue()
+	 */
+	public Object getValue() throws ReflectMemberException, ReflectClassException {
+		return valueInternal(Result.DATA, null, false);
+	}
+	
+	/**
+	 * Get the value from this field
+	 * 
+	 * @param result
+	 * 		Defines how to handle the field data
+	 * 
+	 * @throws ReflectMemberException
+	 * 		Thrown if it was not possible to get the field data
+	 * 
+	 * @throws ReflectClassException
+	 * 		Thrown if you select {@link Result#RECEIVER} and {@link ReflectClass} fails to create the instance
+	 */
+	public Object getValue(Result result) throws ReflectMemberException, ReflectClassException {
+		return valueInternal(result, null, false);
+	}
+	
+	/**
+	 * Change the value in this field
+	 * 
+	 * @param value
+	 * 		The new value
+	 * 
+	 * @throws ReflectMemberException
+	 * 		Thrown if it was not possible to change the field value
+	 */
+	public void setValue(Object value) throws ReflectMemberException {
+		valueInternal(null, value, true);
+	}
+	
+	/**
+	 * @hide
+	 */
+	protected Object valueInternal(Result result, Object value, boolean setValue) throws ReflectMemberException, ReflectClassException {
+		Object receiver = null;
 		
-		if (receiver != null && !clazz.isInstance(receiver)) {
-			Object newReceiver = resolveReceiverInternal(receiver);
+		if (!isStatic()) {
+			receiver = mReceiverListener != null ? mReceiverListener.onRequestReceiver(this) : null;
 			
-			if (newReceiver != receiver) {
-				return new ReflectField(new ReflectClass(newReceiver, Match.DEFAULT), mField);
+			if (receiver == null) {
+				receiver = getReceiver();
+				
+				if (receiver == null) {
+					throw new ReflectMemberException("Cannot invoke a non-static field without an accociated receiver, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName());
+				}
 			}
 		}
 		
-		return this;
+		Object data = null;
+		
+		try {
+			if (setValue) {
+				mField.set(receiver, value);
+				
+			} else {
+				data = mField.get(receiver);
+			}
+			
+		} catch (Throwable e) {
+			throw new ReflectMemberException("Unable to invoke field, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName(), e);
+		}
+		
+		if (!setValue) {
+			switch (result) {
+				case INSTANCE: 
+					return ReflectClass.fromReceiver(data);
+					
+				case RECEIVER: 
+					mReflectClass.setReceiver(data); 
+					
+				default:
+					return data;
+			}
+		}
+		
+		return null;
 	}
 }

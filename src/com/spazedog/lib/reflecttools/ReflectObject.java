@@ -1,7 +1,7 @@
 /*
 * This file is part of the ReflectTools Project: https://github.com/spazedog/reflect-tools
 *
-* Copyright (c) 2014 Daniel Bergløv
+* Copyright (c) 2015 Daniel Bergløv
 *
 * ReflectTools is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -18,11 +18,17 @@
 *
 */
 
-package com.spazedog.lib.reflecttools.utils;
+package com.spazedog.lib.reflecttools;
 
-public class ReflectException extends Error {
-	private static final long serialVersionUID = 744756325699271227L;
+public abstract class ReflectObject<T> {
+
+	/**
+	 * Returns the receiver accociated with this object
+	 */
+	public abstract Object getReceiver();
 	
-	public ReflectException(Throwable cause) { super(cause); }
-	public ReflectException(String detailMessage, Throwable cause) { super(detailMessage, cause); }
+	/**
+	 * Returns the object <code>T</code> attached to this object
+	 */
+	public abstract T getObject();
 }
