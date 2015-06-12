@@ -26,12 +26,12 @@ import java.util.HashMap;
 import com.spazedog.lib.reflecttools.ReflectClass.ReflectClassException;
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
-import com.spazedog.lib.reflecttools.bridge.MethodCydia;
-import com.spazedog.lib.reflecttools.bridge.MethodXposed;
 
 public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected final static HashMap<String, Constructor<?>> oConstructCache = new HashMap<String, Constructor<?>>();
@@ -119,21 +119,29 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected OnRequestReceiverListener mReceiverListener;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Constructor<?> mConstructor;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectConstructor(ReflectClass rclass, Constructor<?> constructor) {
@@ -176,17 +184,7 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	 */
 	public void bridge(MethodBridge callback) throws ReflectMemberException {
 		if (ReflectUtils.bridgeInitiated()) {
-			try {
-				if (ReflectUtils.usesCydia()) {
-					MethodCydia.setupBridge(callback, mConstructor);
-					
-				} else {
-					MethodXposed.setupBridge(callback, mConstructor);
-				}
-				
-			} catch (Throwable e) {
-				throw new ReflectMemberException("Error while injecting runtime code to the " + "constructor" + " for " + mReflectClass.getObject().getName(), e);
-			}
+			callback.attachBridge(mConstructor);
 			
 		} else {
 			throw new ReflectMemberException("Cannot inject runtime code while no bridge has been initiated, attempted on " + "constructor" + " for " + mReflectClass.getObject().getName());
@@ -217,6 +215,8 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException, ReflectClassException {

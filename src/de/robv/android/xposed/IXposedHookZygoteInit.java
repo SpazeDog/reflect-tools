@@ -1,5 +1,10 @@
 package de.robv.android.xposed;
 
+/**
+ * For Internal Use
+ * 
+ * @hide
+ */
 public interface IXposedHookZygoteInit {
 	
 	/*

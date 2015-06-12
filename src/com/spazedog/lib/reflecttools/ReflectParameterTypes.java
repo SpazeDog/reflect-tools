@@ -38,6 +38,8 @@ public class ReflectParameterTypes {
 	}
 
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected final List<Class<?>> mParameterTypes = new ArrayList<Class<?>>();

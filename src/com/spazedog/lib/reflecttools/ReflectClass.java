@@ -35,8 +35,6 @@ import com.spazedog.lib.reflecttools.ReflectMember.ReflectMemberException;
 import com.spazedog.lib.reflecttools.ReflectMember.Result;
 import com.spazedog.lib.reflecttools.ReflectParameterTypes.ReflectParameterException;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
-import com.spazedog.lib.reflecttools.bridge.MethodCydia;
-import com.spazedog.lib.reflecttools.bridge.MethodXposed;
 
 public class ReflectClass extends ReflectObject<Class<?>> {
 	
@@ -57,6 +55,8 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected final static HashMap<String, Class<?>> oClassCache = new HashMap<String, Class<?>>();
@@ -255,16 +255,22 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Class<?> mClass;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Object mReceiver;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectClass(Class<?> clazz) {
@@ -845,14 +851,7 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 				
 				for (Member member : members) {
 					if (methodName == null || member.getName().equals(methodName)) {
-						if (ReflectUtils.usesCydia()) {
-							MethodCydia.setupBridge(callback, member);
-							
-						} else {
-							MethodXposed.setupBridge(callback, member);
-						}
-						
-						count += 1;
+						callback.attachBridge(member); count += 1;
 					}
 				}
 				

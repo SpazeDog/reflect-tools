@@ -33,9 +33,11 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 
 /**
+ * For Internal Use
+ * 
  * @hide
  */
-public class MethodXposed extends XC_MethodHook implements BridgeLogic {
+class MethodXposed extends XC_MethodHook implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;

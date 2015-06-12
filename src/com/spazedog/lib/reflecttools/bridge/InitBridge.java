@@ -36,16 +36,20 @@ import de.robv.android.xposed.IXposedHookZygoteInit;
 public abstract class InitBridge implements IXposedHookZygoteInit {
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	private final static MethodBridge mUtilsBridge = new MethodBridge() {
 		@Override
-		protected void bridgeBegin(BridgeParams params) {
+		public void bridgeBegin(BridgeParams params) {
 			params.setResult(true);
 		}
 	};
 
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	@Override
@@ -77,6 +81,8 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	private final void internalZygoteInit() throws Throwable {
@@ -92,14 +98,14 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 				ReflectClass.fromName("android.app.ActivityThread")
 				.bridge("systemMain", new MethodBridge() {
 					@Override
-					protected void bridgeEnd(BridgeParams params) {
+					public void bridgeEnd(BridgeParams params) {
 						LOG.Info(this, "Adding bridge for ActivityManagerService");
 						
 						try {
 							ReflectClass.fromName("com.android.server.am.ActivityManagerService")
 							.bridge(new MethodBridge() {
 								@Override
-								protected void bridgeEnd(BridgeParams params) {
+								public void bridgeEnd(BridgeParams params) {
 									Context context = ReflectUtils.Bridge.correntContext();
 									
 									LOG.Debug(this, "Invoking onSystemInit\n\t\t" + (context != null ? "Parsing System Context" : "Could not locate System Context"));
@@ -125,7 +131,7 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 				ReflectClass.fromName("com.android.server.am.ActivityManagerService")
 				.bridge("main", new MethodBridge() {
 					@Override
-					protected void bridgeEnd(BridgeParams params) {
+					public void bridgeEnd(BridgeParams params) {
 						Context context = (Context) params.getResult();
 						
 						LOG.Debug(this, "Invoking onSystemInit\n\t\t" + (context != null ? "Parsing System Context" : "Could not locate System Context"));
@@ -146,7 +152,7 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 			private boolean mIsLoaded = false;
 			
 			@Override
-			protected void bridgeEnd(BridgeParams params) {
+			public void bridgeEnd(BridgeParams params) {
 				String processName = ReflectUtils.Bridge.currentProcessName();
 				
 				if (!"android".equals(processName)) {
@@ -184,6 +190,8 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	private final void addUtilsBridge(BridgeType type, ClassLoader loader) {
@@ -232,7 +240,7 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	 * Note that this is executed as Root and before Android has been started. You should avoid adding to many 
 	 * module hooks from here.
 	 */
-	protected void onZygoteInit() {}
+	public void onZygoteInit() {}
 	
 	/**
 	 * This is invoked once the system thread has been created and started along with things like system context and such. 
@@ -242,7 +250,7 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	 * @param systemContext
 	 * 		The main system {@link Context}
 	 */
-	protected void onSystemInit(Context systemContext) {}
+	public void onSystemInit(Context systemContext) {}
 	
 	/**
 	 * This is invoked when an application is starting and creates it's process. 
@@ -258,7 +266,7 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	 * @param processName
 	 * 		Name of the process
 	 */
-	protected void onProcessInit(Context context, String packageName, String processName) {}
+	public void onProcessInit(Context context, String packageName, String processName) {}
 	
 	/**
 	 * This is called whenever a new application is starting. Unlike {@link #onProcessInit(Context, String, String)} 
@@ -275,5 +283,5 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 	 * @param processName
 	 * 		Name of the process
 	 */
-	protected void onPackageInit(Context context, String packageName, String processName) {}
+	public void onPackageInit(Context context, String packageName, String processName) {}
 }

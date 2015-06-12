@@ -32,10 +32,12 @@ import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeParams;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeType;
 
 /**
+ * For Internal Use
+ * 
  * @hide
  */
 @SuppressWarnings("rawtypes")
-public class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
+class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;

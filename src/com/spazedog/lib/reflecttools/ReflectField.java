@@ -9,6 +9,8 @@ import com.spazedog.lib.reflecttools.ReflectClass.ReflectClassException;
 public class ReflectField extends ReflectMember<ReflectField> {
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected final static HashMap<String, Field> oFieldCache = new HashMap<String, Field>();
@@ -68,21 +70,29 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected OnRequestReceiverListener mReceiverListener;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Field mField;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectField(ReflectClass rclass, Field field) {
@@ -151,6 +161,8 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Object valueInternal(Result result, Object value, boolean setValue) throws ReflectMemberException, ReflectClassException {

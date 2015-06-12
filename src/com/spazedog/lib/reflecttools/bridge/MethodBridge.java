@@ -22,6 +22,8 @@ package com.spazedog.lib.reflecttools.bridge;
 
 import java.lang.reflect.Member;
 
+import com.spazedog.lib.reflecttools.ReflectUtils;
+
 public abstract class MethodBridge {
 	
 	/**
@@ -41,6 +43,25 @@ public abstract class MethodBridge {
 	}
 	
 	/**
+	 * Create a bridge between this callback and the parsed {@link Member}
+	 * 
+	 * @param member
+	 * 		The {@link Member} to bridge
+	 */
+	public void attachBridge(Member member) {
+		if (ReflectUtils.bridgeInitiated()) {
+			if (ReflectUtils.usesCydia()) {
+				MethodCydia.setupBridge(this, member);
+					
+			} else {
+				MethodXposed.setupBridge(this, member);
+			}
+		}
+	}
+	
+	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	private BridgeLogic mLogic;
@@ -52,7 +73,7 @@ public abstract class MethodBridge {
 	 * @param params
 	 * 		Contains information about the original member and the arguments parsed to it
 	 */
-	protected void bridgeBegin(BridgeParams params) {}
+	public void bridgeBegin(BridgeParams params) {}
 	
 	/**
 	 * This method is invoked after the Original, or after {@link #bridgeBegin(BridgeParams)} 
@@ -61,7 +82,7 @@ public abstract class MethodBridge {
 	 * @param params
 	 * 		Contains information about the original member and the arguments parsed to it
 	 */
-	protected void bridgeEnd(BridgeParams params) {}
+	public void bridgeEnd(BridgeParams params) {}
 	
 	/**
 	 * This method will invoke the original member and return 
@@ -70,7 +91,7 @@ public abstract class MethodBridge {
 	 * @param args
 	 * 		Arguments to parse to the original member
 	 */
-	protected Object invoke(Object... args) {
+	public Object invoke(Object... args) {
 		if (mLogic != null) {
 			return mLogic.invoke(args);
 		}
@@ -116,6 +137,8 @@ public abstract class MethodBridge {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected static interface BridgeLogic {

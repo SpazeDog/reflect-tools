@@ -25,12 +25,12 @@ import java.util.HashMap;
 
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
-import com.spazedog.lib.reflecttools.bridge.MethodCydia;
-import com.spazedog.lib.reflecttools.bridge.MethodXposed;
 
 public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected final static HashMap<String, Method> oMethodCache = new HashMap<String, Method>();
@@ -106,21 +106,29 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	}
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected OnRequestReceiverListener mReceiverListener;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Method mMethod;
 	
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected ReflectMethod(ReflectClass rclass, Method method) {
@@ -163,17 +171,7 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 */
 	public void bridge(MethodBridge callback) throws ReflectMemberException {
 		if (ReflectUtils.bridgeInitiated()) {
-			try {
-				if (ReflectUtils.usesCydia()) {
-					MethodCydia.setupBridge(callback, mMethod);
-					
-				} else {
-					MethodXposed.setupBridge(callback, mMethod);
-				}
-				
-			} catch (Throwable e) {
-				throw new ReflectMemberException("Error while injecting runtime code to the " + "methods matching the name " + mMethod.getName() + " for " + mReflectClass.getObject().getName(), e);
-			}
+			callback.attachBridge(mMethod);
 			
 		} else {
 			throw new ReflectMemberException("Cannot inject runtime code while no bridge has been initiated, attempted on " + "methods matching the name " + mMethod.getName() + " for " + mReflectClass.getObject().getName());
@@ -204,6 +202,8 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	}
 
 	/**
+	 * For Internal Use
+	 * 
 	 * @hide
 	 */
 	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException {
