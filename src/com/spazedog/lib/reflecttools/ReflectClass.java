@@ -23,10 +23,12 @@ package com.spazedog.lib.reflecttools;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 
 import android.os.Build;
+import android.os.IBinder;
 
 import com.spazedog.lib.reflecttools.ReflectMember.Match;
 import com.spazedog.lib.reflecttools.ReflectMember.ReflectMemberException;
@@ -866,6 +868,66 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 			
 		} else {
 			throw new ReflectClassException("Cannot inject runtime code while no bridge has been initiated, attempted on " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for " + mClass.getName());
+		}
+	}
+	
+	/**
+	 * Bind this {@link ReflectClass} instance as an interface to a system service {@link IBinder}. Note that the {@link Class} attached to this instance 
+	 * needs to be a valid interface for that specific service {@link IBinder}. <br /><br />
+	 * 
+	 * This will give you easy access to services and service methods not normally available through the regular Service Manager. 
+	 * 
+	 * @param service
+	 * 		The name of the service to bind to
+	 * 
+	 * @throws ReflectMemberException
+	 * 		Thrown if using an invalid interface
+	 * 
+	 * @throws ReflectParameterException
+	 * 		Thrown if an {@link IBinder} could not be found
+	 * 
+	 * @return Itself with an {@link IBinder} Receiver
+	 */
+	public ReflectClass bindInterface(String service) throws ReflectMemberException, ReflectParameterException {
+		IBinder binder = (IBinder) fromName("android.os.ServiceManager").invokeMethod("getService", service);
+		
+		if (binder != null) {
+			return bindInterface(binder);
+			
+		} else {
+			throw new ReflectClassException("Cannot bind to a service using a NULL IBinder\n\t\t" + 
+					"Service Name = " + service + "\n\t\t" + 
+					"Interface = " + mClass.getName());
+		}
+	}
+	
+	/**
+	 * @see #bindInterface(String)
+	 * 
+	 * @param binder
+	 * 		The {@link IBinder} to bind to the interface
+	 * 
+	 * @throws ReflectMemberException
+	 * 		Thrown if using an invalid interface
+	 * 
+	 * @throws ReflectParameterException
+	 * 		Thrown if an {@link IBinder} is <code>NULL</code>
+	 * 
+	 * @return Itself with the {@link IBinder} Receiver
+	 */
+	public ReflectClass bindInterface(IBinder binder) throws ReflectMemberException, ReflectParameterException {
+		if (binder != null) {
+			if (!mClass.getName().endsWith("$Stub")) {
+				mClass = getNestedClass("Stub");
+			}
+			
+			mReceiver = invokeMethod("asInterface", binder);
+			
+			return this;
+			
+		} else {
+			throw new ReflectClassException("Cannot bind to a service using a NULL IBinder\n\t\t" + 
+					"Interface = " + mClass.getName());
 		}
 	}
 }
