@@ -1,0 +1,36 @@
+apply plugin: 'com.android.library'
+
+buildDir = '../../build/reflectTools'
+
+android {
+    compileSdkVersion 21
+    buildToolsVersion "22.0.1"
+
+    defaultConfig {
+        minSdkVersion 4
+        targetSdkVersion 22
+        versionCode 30
+        versionName "3.0.1"
+    }
+
+    sourceSets {
+        main {
+            manifest { srcFile '../../AndroidManifest.xml' }
+            res { srcDirs = ['../../res'] }
+            resources { srcDirs = ['../../src'] }
+            renderscript { srcDirs = ['../../src'] }
+            java { srcDirs = ['../../src'] }
+            assets { srcDirs = ['../../assets'] }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_6
+        targetCompatibility JavaVersion.VERSION_1_6
+    }
+}
+
+dependencies {
+    compile files('../../libs/substrate-api.jar')
+    provided files('../../xposed-api.jar')
+}
