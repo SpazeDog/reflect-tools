@@ -7,3 +7,30 @@ ReflectTools are two things. First it is a large Reflection Library that can be 
 So why support only one when you can support it all? 
 
 **Checkout the [Wiki page](https://github.com/SpazeDog/reflect-tools/wiki) to get started**
+
+### Include Library
+-----------
+
+**Android Studio**
+
+First download the [ReflectTools-release.aar](https://github.com/SpazeDog/reflect-tools/raw/3.x/projects/reflectTools-release.aar) file. 
+
+Place the file in something like the `libs` folder in your module. 
+
+Open your `build.gradle` file for your module _(not the main project version)_. 
+
+```
+dependencies {
+    compile(name:'reflectTools-release', ext:'aar')
+}
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+```
+
+**Eclipse/ADT**
+
+Download the source and import it into eclipse. Then simply include the new library project to your main project.
