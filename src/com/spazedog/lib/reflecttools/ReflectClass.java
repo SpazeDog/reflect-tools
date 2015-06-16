@@ -887,17 +887,33 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	 * 
 	 * @return Itself with an {@link IBinder} Receiver
 	 */
+    private static boolean oServiceManagerReady = false;
 	public ReflectClass bindInterface(String service) throws ReflectMemberException, ReflectParameterException {
-		IBinder binder = (IBinder) fromName("android.os.ServiceManager").invokeMethod("getService", service);
-		
-		if (binder != null) {
-			return bindInterface(binder);
-			
-		} else {
-			throw new ReflectClassException("Cannot bind to a service using a NULL IBinder\n\t\t" + 
-					"Service Name = " + service + "\n\t\t" + 
-					"Interface = " + mClass.getName());
-		}
+        if (!oServiceManagerReady) {
+            IBinder managerBinder = (IBinder) fromName("com.android.internal.os.BinderInternal").invokeMethod("getContextObject");
+
+            if (managerBinder != null) {
+                oServiceManagerReady = true;
+            }
+        }
+
+        if (oServiceManagerReady) {
+            IBinder binder = (IBinder) fromName("android.os.ServiceManager").invokeMethod("getService", service);
+
+            if (binder != null) {
+                return bindInterface(binder);
+
+            } else {
+                throw new ReflectClassException("Cannot bind to a service using a NULL IBinder\n\t\t" +
+                        "Service Name = " + service + "\n\t\t" +
+                        "Interface = " + mClass.getName());
+            }
+
+        } else {
+            throw new ReflectClassException("The native service manager is not yet ready\n\t\t" +
+                    "Service Name = " + service + "\n\t\t" +
+                    "Interface = " + mClass.getName());
+        }
 	}
 	
 	/**

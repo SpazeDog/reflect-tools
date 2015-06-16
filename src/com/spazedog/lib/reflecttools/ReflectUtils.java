@@ -51,7 +51,7 @@ public class ReflectUtils {
 	}
 	
 	public static class LOG {
-		public static final boolean DEBUG_LOGGING = true;
+		public static final boolean DEBUG_LOGGING = false;
 		
 		public static final int DEBUG = Log.DEBUG;
 		public static final int INFO = Log.INFO;
