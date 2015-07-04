@@ -932,11 +932,22 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	 */
 	public ReflectClass bindInterface(IBinder binder) throws ReflectMemberException, ReflectParameterException {
 		if (binder != null) {
+            ReflectClass callee = this;
+
 			if (!mClass.getName().endsWith("$Stub")) {
-				mClass = getNestedClass("Stub");
+                try {
+				    callee = getNested("Stub");
+
+                } catch (ReflectException e) {
+                    /*
+                     * Some Android internal services does not use 'Stub'
+                     */
+                    callee = this;
+                }
 			}
 			
-			mReceiver = invokeMethod("asInterface", binder);
+			mReceiver = callee.invokeMethod("asInterface", binder);
+            mClass = mReceiver.getClass();
 			
 			return this;
 			
