@@ -91,9 +91,9 @@ public abstract class MethodBridge {
 	 * @param args
 	 * 		Arguments to parse to the original member
 	 */
-	public Object invoke(Object... args) {
+	public Object invokeOriginal(Object receiver, Object... args) {
 		if (mLogic != null) {
-			return mLogic.invoke(args);
+			return mLogic.invokeOriginal(receiver, args);
 		}
 		
 		return null;
@@ -134,6 +134,11 @@ public abstract class MethodBridge {
 		 * Return the current result that is to be parsed back to the caller of the original {@link Member}
 		 */
 		public abstract Object getResult();
+
+		/*
+		 * Invoke the original method, bypassing the hooks.
+		 */
+		public abstract Object invokeOriginal(Object... args);
 	}
 	
 	/**
@@ -142,6 +147,6 @@ public abstract class MethodBridge {
 	 * @hide
 	 */
 	protected static interface BridgeLogic {
-		public Object invoke(Object... args);
+		public Object invokeOriginal(Object receiver, Object... args);
 	}
 }

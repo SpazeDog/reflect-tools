@@ -41,7 +41,6 @@ class MethodXposed extends XC_MethodHook implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;
-	private Object mReceiver;
 	
 	public static void setupBridge(MethodBridge bridge, Member member) {
 		LOG.Debug(MethodXposed.class.getName(), "Setting up new bridge\n\t\t" + 
@@ -68,26 +67,28 @@ class MethodXposed extends XC_MethodHook implements BridgeLogic {
 	@Override
 	protected void beforeHookedMethod(MethodHookParam params) throws Throwable {
 		XposedParams bridgeParams = XposedParams.getInstance(params);
-		mReceiver = params.thisObject;
 		mBridge.bridgeBegin(bridgeParams);
-		mReceiver = null;
 		bridgeParams.recycle();
 	}
 	
 	@Override
 	protected void afterHookedMethod(MethodHookParam params) throws Throwable {
 		XposedParams bridgeParams = XposedParams.getInstance(params);
-		mReceiver = params.thisObject;
 		mBridge.bridgeEnd(bridgeParams);
-		mReceiver = null;
 		bridgeParams.recycle();
 	}
-	
-	@Override
-	public Object invoke(Object... args) {
-		return XposedBridge.invokeOriginalMethod(mMember, mReceiver, args);
-	}
-	
+
+    @Override
+    public Object invokeOriginal(Object receiver, Object... args) {
+        try {
+            return XposedBridge.invokeOriginalMethod(mMember, receiver, args);
+
+        } catch (Throwable e) {
+        }
+
+        return null;
+    }
+
 	protected static class XposedParams extends BridgeParams {
 		private static final Object oLock = new Object();
 		private static XposedParams oInstance;
@@ -135,6 +136,11 @@ class MethodXposed extends XC_MethodHook implements BridgeLogic {
 		@Override
 		public Object getResult() {
 			return mParams.getResult();
+		}
+
+		@Override
+		public Object invokeOriginal(Object... args) {
+			return XposedBridge.invokeOriginalMethod(method, receiver, args);
 		}
 	}
 }

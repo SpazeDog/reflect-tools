@@ -20,16 +20,16 @@
 
 package com.spazedog.lib.reflecttools.bridge;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
-import java.lang.reflect.Method;
-
 import com.saurik.substrate.MS;
 import com.spazedog.lib.reflecttools.ReflectUtils.LOG;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeLogic;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeParams;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeType;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 
 /**
  * For Internal Use
@@ -41,7 +41,6 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;
-	private Object mReceiver;
 	
 	@SuppressWarnings("unchecked")
 	public static void setupBridge(MethodBridge bridge, Member member) {
@@ -74,9 +73,7 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 	@SuppressWarnings("unchecked")
 	@Override
 	public final Object invoked(Object receiver, Object... args) throws Throwable {
-		mReceiver = receiver;
-
-		CydiaParams bridgeParams = CydiaParams.getInstance(mMember, receiver, args);
+		CydiaParams bridgeParams = CydiaParams.getInstance(this, mMember, receiver, args);
 		mBridge.bridgeBegin(bridgeParams);
 		
 		if (!bridgeParams.mQuit) {
@@ -88,8 +85,6 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 		Object result = bridgeParams.mResult;
 		bridgeParams.recycle();
 		
-		mReceiver = null;
-		
 		return result;
 	}
 	
@@ -100,8 +95,9 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 		
 		private boolean mQuit = false;
 		private Object mResult;
+        private MS.MethodAlteration mHook;
 		
-		private static CydiaParams getInstance(Member member, Object receiver, Object[] args) {
+		private static CydiaParams getInstance(MS.MethodAlteration hook, Member member, Object receiver, Object[] args) {
 			synchronized (oLock) {
 				if (oInstance == null) {
 					oInstance = new CydiaParams();
@@ -115,6 +111,8 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 				instance.receiver = receiver;
 				instance.args = args;
 				instance.bridgeType = BridgeType.CYDIA;
+
+                instance.mHook = hook;
 				
 				return instance;
 			}
@@ -127,6 +125,7 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 				args = null;
 				mResult = null;
 				mQuit = false;
+                mHook = null;
 				mLastInstance = oInstance;
 				
 				oInstance = this;
@@ -143,15 +142,26 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 		public Object getResult() {
 			return mResult;
 		}
+
+		@Override
+		public Object invokeOriginal(Object... args) {
+            try {
+                return mHook.invoke(receiver, args);
+
+            } catch (Throwable e) {
+                return null;
+            }
+		}
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public Object invoke(Object... args) {
-		try {
-			return invoke(mReceiver, args);
-			
-		} catch (Throwable e) {}
+    public Object invokeOriginal(Object receiver, Object... args) {
+        try {
+            return invoke(receiver, args);
+
+        } catch (Throwable e) {
+        }
 		
 		return null;
 	}
