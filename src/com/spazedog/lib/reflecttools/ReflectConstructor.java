@@ -123,13 +123,6 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	 * 
 	 * @hide
 	 */
-	protected OnRequestReceiverListener mReceiverListener;
-	
-	/**
-	 * For Internal Use
-	 * 
-	 * @hide
-	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
@@ -147,14 +140,6 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	protected ReflectConstructor(ReflectClass rclass, Constructor<?> constructor) {
 		mReflectClass = rclass;
 		mConstructor = constructor;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void setOnRequestReceiverListener(OnRequestReceiverListener listener) {
-		mReceiverListener = listener;
 	}
 
 	/**
@@ -223,26 +208,22 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 		Object[] params = null;
 		
 		if (!mReflectClass.isStatic() && mReflectClass.isNested()) {
-			Object receiver = mReceiverListener != null ? mReceiverListener.onRequestReceiver(this) : null;
-			
-			if (receiver == null) {
-				receiver = getReceiver();
-				
-				if (receiver != null && mReflectClass.getObject().isInstance(receiver)) {
-					receiver = mReflectClass.getParentReceiver();
+			Object receiver = getReceiver();
+
+			if (receiver != null && mReflectClass.getObject().isInstance(receiver)) {
+				receiver = mReflectClass.fromReceiver(receiver).getParentReceiver();
+			}
+
+			if (receiver != null) {
+				params = new Object[ args.length + 1 ];
+				params[0] = receiver;
+
+				for (int i=0, x=1; i < args.length; i++, x++) {
+					params[x] = args[i];
 				}
-				
-				if (receiver != null) {
-					params = new Object[ args.length + 1 ];
-					params[0] = receiver;
-					
-					for (int i=0, x=1; i < args.length; i++, x++) {
-						params[x] = args[i];
-					}
-					
-				} else {
-					throw new ReflectMemberException("Cannot instantiate a nested non-static class constructor without an accociated receiver");
-				}
+
+			} else {
+				throw new ReflectMemberException("Cannot instantiate a nested non-static class constructor without an accociated receiver");
 			}
 			
 		} else {

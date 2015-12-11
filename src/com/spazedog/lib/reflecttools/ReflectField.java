@@ -74,13 +74,6 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	 * 
 	 * @hide
 	 */
-	protected OnRequestReceiverListener mReceiverListener;
-	
-	/**
-	 * For Internal Use
-	 * 
-	 * @hide
-	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
@@ -98,14 +91,6 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	protected ReflectField(ReflectClass rclass, Field field) {
 		mReflectClass = rclass;
 		mField = field;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void setOnRequestReceiverListener(OnRequestReceiverListener listener) {
-		mReceiverListener = listener;
 	}
 
 	/**
@@ -169,14 +154,10 @@ public class ReflectField extends ReflectMember<ReflectField> {
 		Object receiver = null;
 		
 		if (!isStatic()) {
-			receiver = mReceiverListener != null ? mReceiverListener.onRequestReceiver(this) : null;
-			
+			receiver = getReceiver();
+
 			if (receiver == null) {
-				receiver = getReceiver();
-				
-				if (receiver == null) {
-					throw new ReflectMemberException("Cannot invoke a non-static field without an accociated receiver, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName());
-				}
+				throw new ReflectMemberException("Cannot invoke a non-static field without an accociated receiver, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName());
 			}
 		}
 		

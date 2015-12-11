@@ -20,13 +20,6 @@
 
 package com.spazedog.lib.reflecttools;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.HashMap;
-
 import android.os.Build;
 import android.os.IBinder;
 
@@ -36,7 +29,21 @@ import com.spazedog.lib.reflecttools.ReflectMember.Result;
 import com.spazedog.lib.reflecttools.ReflectParameterTypes.ReflectParameterException;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.HashMap;
+
 public class ReflectClass extends ReflectObject<Class<?>> {
+
+    protected OnClassReceiverListener mListener;
+    protected volatile boolean mListenerActive = false;
+
+	public static interface OnClassReceiverListener {
+        public Object onRequestReceiver(ReflectClass reflectClass);
+    }
 	
 	public static class ReflectClassException extends ReflectException {
 		private static final long serialVersionUID = -8476128751589149058L;
@@ -245,7 +252,7 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	 */
 	public static ReflectClass fromReceiver(Object receiver) throws ReflectClassException {
 		if (receiver != null) {
-			ReflectClass rclazz = new ReflectClass(receiver.getClass());
+            ReflectClass rclazz = new ReflectClass(receiver.getClass());
 			rclazz.setReceiver(receiver);
 			
 			return rclazz;
@@ -276,6 +283,10 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	protected ReflectClass(Class<?> clazz) {
 		mClass = clazz;
 	}
+
+    public void setReceiverListener(OnClassReceiverListener listener) {
+        mListener = listener;
+    }
 	
 	/**
 	 * Set the receiver used when invoking members belonging to it
@@ -291,8 +302,20 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Object getReceiver() {
-		return mReceiver;
+	public synchronized Object getReceiver() {
+        Object receiver = null;
+
+        if (mListener != null && !mListenerActive) {
+            mListenerActive = true;
+            receiver = mListener.onRequestReceiver(this);
+            mListenerActive = false;
+        }
+
+        if (receiver == null) {
+            receiver = mReceiver;
+        }
+
+		return receiver;
 	}
 
 	/**

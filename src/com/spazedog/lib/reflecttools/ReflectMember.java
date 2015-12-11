@@ -25,6 +25,9 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Modifier;
 
 public abstract class ReflectMember<RT extends ReflectMember<RT>> extends ReflectObject<Member> {
+
+    protected OnMemberReceiverListener mListener;
+    protected volatile boolean mListenerActive = false;
 	
 	public static class ReflectMemberException extends ReflectException {
 		private static final long serialVersionUID = 8211193410992359199L;
@@ -102,7 +105,7 @@ public abstract class ReflectMember<RT extends ReflectMember<RT>> extends Reflec
 	 * In these cases this listener can be used. It will be invoked each time a receiver is used to 
 	 * invoke a member. 
 	 */
-	public static interface OnRequestReceiverListener {
+	public static interface OnMemberReceiverListener {
 		/**
 		 * Invoked when a receiver is needed to invoke a member. 
 		 * This will only be called on non-static classes where a receiver is needed. 
@@ -112,14 +115,32 @@ public abstract class ReflectMember<RT extends ReflectMember<RT>> extends Reflec
 		 */
 		public Object onRequestReceiver(ReflectMember<?> member);
 	}
+
+    /**
+     * @deprecated
+     *      Use {@link OnMemberReceiverListener instead}
+     */
+    public static interface OnRequestReceiverListener extends OnMemberReceiverListener {}
 	
 	/**
-	 * Set the {@link OnRequestReceiverListener} listener for this member
+	 * Set the {@link OnMemberReceiverListener} listener for this member
 	 * 
 	 * @param listener
-	 * 		The {@link OnRequestReceiverListener} to be invoked when a receiver is being requested
+	 * 		The {@link OnMemberReceiverListener} to be invoked when a receiver is being requested
 	 */
-	public abstract void setOnRequestReceiverListener(OnRequestReceiverListener listener);
+	public void setReceiverListener(OnMemberReceiverListener listener) {
+        mListener = listener;
+    }
+
+    /**
+     * @deprecated
+     *      Use {@link #setReceiverListener(OnMemberReceiverListener)}
+     *
+     * @param listener
+     */
+    public void setOnRequestReceiverListener(OnMemberReceiverListener listener) {
+        mListener = listener;
+    }
 
 	/**
 	 * Returns the {@link ReflectClass} instance belonging to this member
@@ -217,9 +238,19 @@ public abstract class ReflectMember<RT extends ReflectMember<RT>> extends Reflec
 	 * 
 	 * This action will handle cases where a member was found based on a nested class. 
 	 */
-	public Object getReceiver() {
+	public synchronized Object getReceiver() {
 		Class<?> clazz = getObject().getDeclaringClass();
-		Object receiver = getReflectClass().getReceiver();
+		Object receiver = null;
+
+        if (mListener != null && !mListenerActive) {
+            mListenerActive = true;
+            receiver = mListener.onRequestReceiver(this);
+            mListenerActive = false;
+        }
+
+        if (receiver == null) {
+            receiver = getReflectClass().getReceiver();
+        }
 		
 		if (receiver != null && !clazz.isInstance(receiver)) {
 			Field field;

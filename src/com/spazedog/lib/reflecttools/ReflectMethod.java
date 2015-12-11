@@ -20,11 +20,11 @@
 
 package com.spazedog.lib.reflecttools;
 
-import java.lang.reflect.Method;
-import java.util.HashMap;
-
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
+
+import java.lang.reflect.Method;
+import java.util.HashMap;
 
 public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	
@@ -110,13 +110,6 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 * 
 	 * @hide
 	 */
-	protected OnRequestReceiverListener mReceiverListener;
-	
-	/**
-	 * For Internal Use
-	 * 
-	 * @hide
-	 */
 	protected ReflectClass mReflectClass;
 	
 	/**
@@ -134,14 +127,6 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	protected ReflectMethod(ReflectClass rclass, Method method) {
 		mReflectClass = rclass;
 		mMethod = method;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void setOnRequestReceiverListener(OnRequestReceiverListener listener) {
-		mReceiverListener = listener;
 	}
 
 	/**
@@ -208,20 +193,15 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 */
 	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException {
 		Object receiver = null;
+		Object data = null;
 		
 		if (!isStatic()) {
-			receiver = mReceiverListener != null ? mReceiverListener.onRequestReceiver(this) : null;
-			
+			receiver = getReceiver();
+
 			if (receiver == null) {
-				receiver = getReceiver();
-				
-				if (receiver == null) {
-					throw new ReflectMemberException("Cannot invoke a non-static method without an accociated receiver, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName());
-				}
+				throw new ReflectMemberException("Cannot invoke a non-static method without an accociated receiver, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName());
 			}
 		}
-		
-		Object data = null;
 		
 		try {
 			data = mMethod.invoke(receiver, args);
