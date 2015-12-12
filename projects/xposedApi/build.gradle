@@ -1,6 +1,6 @@
 apply plugin: 'com.android.library'
 
-buildDir = '../../build/xposedApi'
+buildDir = "${System.properties['user.home']}/.gradle/build/${rootProject.name}/${project.name}"
 
 android {
     compileSdkVersion 21
