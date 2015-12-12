@@ -2,6 +2,7 @@
 
 BUILD_PATH="$(readlink -f "$(dirname $0)")"
 BUILD_TYPE="$1"
+BUILD_HOME=~/.gradle/build/$(basename "$BUILD_PATH")
 
 export PATH="$PATH:$BUILD_PATH"
 
@@ -18,13 +19,13 @@ if which gradlew 2>&1 > /dev/null; then
     cd "$BUILD_PATH/projects/xposedApi" || exit 1
     gradlew clean || exit 1
     gradlew build || exit 1
-    cp -f "$BUILD_PATH/build/xposedApi/intermediates/bundles/$BUILD_TYPE/classes.jar" "$BUILD_PATH/xposed-api.jar" || exit 1
+    cp -f "$BUILD_HOME/xposedApi/intermediates/bundles/$BUILD_TYPE/classes.jar" "$BUILD_PATH/xposed-api.jar" || exit 1
 
     # Build ReflectTools
     cd "$BUILD_PATH/projects/reflectTools" || exit 1
     gradlew clean || exit 1
     gradlew build || exit 1
-    cp -f "$BUILD_PATH/build/reflectTools/outputs/aar/reflectTools-$BUILD_TYPE.aar" "$BUILD_PATH/projects" || exit 1
+    cp -f "$BUILD_HOME/reflectTools/outputs/aar/reflectTools-$BUILD_TYPE.aar" "$BUILD_PATH/projects/" || exit 1
 
     # Clean
     cd "$BUILD_PATH" || exit 1
