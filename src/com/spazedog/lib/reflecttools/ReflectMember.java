@@ -239,7 +239,6 @@ public abstract class ReflectMember<RT extends ReflectMember<RT>> extends Reflec
 	 * This action will handle cases where a member was found based on a nested class. 
 	 */
 	public synchronized Object getReceiver() {
-		Class<?> clazz = getObject().getDeclaringClass();
 		Object receiver = null;
 
         if (mListener != null && !mListenerActive) {
@@ -252,27 +251,46 @@ public abstract class ReflectMember<RT extends ReflectMember<RT>> extends Reflec
             receiver = getReflectClass().getReceiver();
         }
 		
-		if (receiver != null && !clazz.isInstance(receiver)) {
-			Field field;
-			
-			try {
-				Object parentReceiver = receiver;
-				
-				do {
-					field = parentReceiver.getClass().getDeclaredField("this$0");
-					field.setAccessible(true);
-					
-					parentReceiver = field.get(parentReceiver);
-					
-				} while (parentReceiver != null && !clazz.isInstance(parentReceiver));
-				
-				if (parentReceiver != null) {
-					return parentReceiver;
-				}
-				
-			} catch (Throwable ignorer) {}
-		}
-		
-		return receiver;
+        return tieReceiver(receiver);
 	}
+
+    /**
+     * This method will match a receiver to this member.
+     * If it does not match, it will search for parent receivers until
+     * a match is found. <br /><br />
+     *
+     * Perhaps the receiver belongs to a nested class and this member
+     * was declared in an outer class. This method will in this case
+     * return the receiver for the outer class where the member
+     * was declared.
+     *
+     * @param receiver
+     *      A new parent receiver or the same
+     */
+    public Object tieReceiver(Object receiver) {
+        Class<?> clazz = getObject().getDeclaringClass();
+
+        if (receiver != null && !clazz.isInstance(receiver)) {
+            Field field;
+
+            try {
+                Object parentReceiver = receiver;
+
+                do {
+                    field = parentReceiver.getClass().getDeclaredField("this$0");
+                    field.setAccessible(true);
+
+                    parentReceiver = field.get(parentReceiver);
+
+                } while (parentReceiver != null && !clazz.isInstance(parentReceiver));
+
+                if (parentReceiver != null) {
+                    return parentReceiver;
+                }
+
+            } catch (Throwable ignorer) {}
+        }
+
+        return receiver;
+    }
 }

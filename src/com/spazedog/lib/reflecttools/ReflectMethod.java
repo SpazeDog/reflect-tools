@@ -22,6 +22,7 @@ package com.spazedog.lib.reflecttools;
 
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
+import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeOriginal;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -154,9 +155,9 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 * @throws ReflectMemberException
 	 * 		If it was not possible to add the hook due to missing injection systems, such as Xposed Framework and Cydia Substrate
 	 */
-	public void bridge(MethodBridge callback) throws ReflectMemberException {
+	public BridgeOriginal bridge(MethodBridge callback) throws ReflectMemberException {
 		if (ReflectUtils.bridgeInitiated()) {
-			callback.attachBridge(mMethod);
+			return callback.attachBridge(mMethod);
 			
 		} else {
 			throw new ReflectMemberException("Cannot inject runtime code while no bridge has been initiated, attempted on " + "methods matching the name " + mMethod.getName() + " for " + mReflectClass.getObject().getName());
@@ -167,8 +168,15 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 * @see #invoke(Result, Object...)
 	 */
 	public Object invoke(Object... args) throws ReflectMemberException {
-		return invokeInternal(Result.DATA, args, false);
+		return invokeInternal(Result.DATA, args);
 	}
+
+    /**
+     * @see #invokeReceiver(Object, Result, Object...)
+     */
+    public Object invokeReceiver(Object receiver, Object... args) throws ReflectMemberException {
+        return invokeInternal(tieReceiver(receiver), Result.DATA, args);
+    }
 	
 	/**
 	 * Invoke this {@link Method} 
@@ -183,17 +191,35 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 	 * 		Thrown if it failed to invoke the {@link Method}
 	 */
 	public Object invoke(Result result, Object... args) throws ReflectMemberException {
-		return invokeInternal(result, args, false);
+		return invokeInternal(result, args);
 	}
+
+    /**
+     * Invoke this {@link Method}
+     *
+     * @param receiver
+     *      The receiver to use
+     *
+     * @param result
+     * 		Defines how to handle the result
+     *
+     * @param args
+     * 		Arguments to be parsed to the {@link Method}
+     *
+     * @throws ReflectMemberException
+     * 		Thrown if it failed to invoke the {@link Method}
+     */
+    public Object invokeReceiver(Object receiver, Result result, Object... args) throws ReflectMemberException {
+        return invokeInternal(tieReceiver(receiver), result, args);
+    }
 
 	/**
 	 * For Internal Use
 	 * 
 	 * @hide
 	 */
-	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException {
+	protected Object invokeInternal(Result result, Object[] args) throws ReflectMemberException {
 		Object receiver = null;
-		Object data = null;
 		
 		if (!isStatic()) {
 			receiver = getReceiver();
@@ -202,23 +228,34 @@ public class ReflectMethod extends ReflectMember<ReflectMethod> {
 				throw new ReflectMemberException("Cannot invoke a non-static method without an accociated receiver, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName());
 			}
 		}
-		
-		try {
-			data = mMethod.invoke(receiver, args);
-			
-		} catch (Throwable e) {
-			throw new ReflectMemberException("Unable to invoke method, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName(), e);
-		}
-		
-		switch (result) {
-			case INSTANCE: 
-				return ReflectClass.fromReceiver(data);
-				
-			case RECEIVER: 
-				mReflectClass.setReceiver(data); 
-				
-			default:
-				return data;
-		}
+
+        return invokeInternal(receiver, result, args);
 	}
+
+    /**
+     * For Internal Use
+     *
+     * @hide
+     */
+    protected Object invokeInternal(Object receiver, Result result, Object[] args) throws ReflectMemberException {
+        Object data = null;
+
+        try {
+            data = mMethod.invoke(receiver, args);
+
+        } catch (Throwable e) {
+            throw new ReflectMemberException("Unable to invoke method, Method = " + mReflectClass.getObject().getName() + "#" + mMethod.getName(), e);
+        }
+
+        switch (result) {
+            case INSTANCE:
+                return ReflectClass.fromReceiver(data);
+
+            case RECEIVER:
+                mReflectClass.setReceiver(data);
+
+            default:
+                return data;
+        }
+    }
 }

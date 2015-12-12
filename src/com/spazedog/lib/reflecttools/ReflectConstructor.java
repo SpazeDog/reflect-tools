@@ -20,12 +20,14 @@
 
 package com.spazedog.lib.reflecttools;
 
-import java.lang.reflect.Constructor;
-import java.util.HashMap;
-
 import com.spazedog.lib.reflecttools.ReflectClass.ReflectClassException;
 import com.spazedog.lib.reflecttools.apache.Common;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge;
+import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeOriginal;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 
 public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	
@@ -167,9 +169,9 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	 * @throws ReflectMemberException
 	 * 		If it was not possible to add the hook due to missing injection systems, such as Xposed Framework and Cydia Substrate
 	 */
-	public void bridge(MethodBridge callback) throws ReflectMemberException {
+	public BridgeOriginal bridge(MethodBridge callback) throws ReflectMemberException {
 		if (ReflectUtils.bridgeInitiated()) {
-			callback.attachBridge(mConstructor);
+			return callback.attachBridge(mConstructor);
 			
 		} else {
 			throw new ReflectMemberException("Cannot inject runtime code while no bridge has been initiated, attempted on " + "constructor" + " for " + mReflectClass.getObject().getName());
@@ -182,6 +184,13 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	public Object invoke(Object... args) throws ReflectMemberException, ReflectClassException {
 		return invokeInternal(Result.DATA, args, false);
 	}
+
+    /**
+     * @see #invokeReceiver(Object, Result, Object...)
+     */
+    public Object invokeReceiver(Object receiver, Object... args) throws ReflectMemberException {
+        return invokeInternal(tieReceiver(receiver), Result.DATA, args);
+    }
 	
 	/**
 	 * Invoke this {@link Constructor} 
@@ -198,6 +207,25 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	public Object invoke(Result result, Object... args) throws ReflectMemberException, ReflectClassException {
 		return invokeInternal(result, args, false);
 	}
+
+	/**
+	 * Invoke this {@link Method} using a specific receiver
+	 *
+	 * @param receiver
+	 *      The receiver to use
+	 *
+	 * @param result
+	 * 		Defines how to handle the result
+	 *
+	 * @param args
+	 * 		Arguments to be parsed to the {@link Method}
+	 *
+	 * @throws ReflectMemberException
+	 * 		Thrown if it failed to invoke the {@link Method}
+	 */
+	public Object invokeReceiver(Object receiver, Result result, Object... args) throws ReflectMemberException {
+		return invokeInternal(tieReceiver(receiver), result, args);
+	}
 	
 	/**
 	 * For Internal Use
@@ -205,49 +233,60 @@ public class ReflectConstructor extends ReflectMember<ReflectConstructor> {
 	 * @hide
 	 */
 	protected Object invokeInternal(Result result, Object[] args, boolean original) throws ReflectMemberException, ReflectClassException {
-		Object[] params = null;
+        Object receiver = null;
 		
 		if (!mReflectClass.isStatic() && mReflectClass.isNested()) {
-			Object receiver = getReceiver();
+			receiver = getReceiver();
 
 			if (receiver != null && mReflectClass.getObject().isInstance(receiver)) {
 				receiver = mReflectClass.fromReceiver(receiver).getParentReceiver();
 			}
 
-			if (receiver != null) {
-				params = new Object[ args.length + 1 ];
-				params[0] = receiver;
+            if (receiver == null) {
+                throw new ReflectMemberException("Cannot instantiate a nested non-static class constructor without an accociated receiver");
+            }
+		}
 
-				for (int i=0, x=1; i < args.length; i++, x++) {
-					params[x] = args[i];
-				}
-
-			} else {
-				throw new ReflectMemberException("Cannot instantiate a nested non-static class constructor without an accociated receiver");
-			}
-			
-		} else {
-			params = args;
-		}
-		
-		Object data = null;
-		
-		try {
-			data = mConstructor.newInstance(params);
-			
-		} catch (Throwable e) {
-			throw new ReflectMemberException("Unable to instantiate class constructor", e);
-		}
-		
-		switch (result) {
-			case INSTANCE: 
-				return ReflectClass.fromReceiver(data);
-				
-			case RECEIVER: 
-				mReflectClass.setReceiver(data); 
-				
-			default:
-				return data;
-		}
+        return invokeInternal(receiver, result, args);
 	}
+
+    /**
+     * For Internal Use
+     *
+     * @hide
+     */
+    protected Object invokeInternal(Object receiver, Result result, Object[] args) throws ReflectMemberException {
+        Object data = null;
+        Object[] params = null;
+
+        if (receiver != null) {
+            params = new Object[ args.length + 1 ];
+            params[0] = receiver;
+
+            for (int i=0, x=1; i < args.length; i++, x++) {
+                params[x] = args[i];
+            }
+
+        } else {
+            params = args;
+        }
+
+        try {
+            data = mConstructor.newInstance(params);
+
+        } catch (Throwable e) {
+            throw new ReflectMemberException("Unable to invoke method, Method = " + mReflectClass.getObject().getName() + "#" + mConstructor.getName(), e);
+        }
+
+        switch (result) {
+            case INSTANCE:
+                return ReflectClass.fromReceiver(data);
+
+            case RECEIVER:
+                mReflectClass.setReceiver(data);
+
+            default:
+                return data;
+        }
+    }
 }

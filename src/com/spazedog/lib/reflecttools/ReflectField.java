@@ -110,11 +110,18 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	}
 	
 	/**
-	 * @see #getValue()
+	 * @see #getValue(Result)
 	 */
 	public Object getValue() throws ReflectMemberException, ReflectClassException {
 		return valueInternal(Result.DATA, null, false);
 	}
+
+    /**
+     * @see #getReceiverValue(Object, Result)
+     */
+    public Object getReceiverValue(Object receiver) throws ReflectMemberException, ReflectClassException {
+        return valueInternal(tieReceiver(receiver), Result.DATA, null, false);
+    }
 	
 	/**
 	 * Get the value from this field
@@ -131,6 +138,22 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	public Object getValue(Result result) throws ReflectMemberException, ReflectClassException {
 		return valueInternal(result, null, false);
 	}
+
+    /**
+     * Get the value from this field using a specified receiver
+     *
+     * @param result
+     * 		Defines how to handle the field data
+     *
+     * @throws ReflectMemberException
+     * 		Thrown if it was not possible to get the field data
+     *
+     * @throws ReflectClassException
+     * 		Thrown if you select {@link Result#RECEIVER} and {@link ReflectClass} fails to create the instance
+     */
+    public Object getReceiverValue(Object receiver, Result result) throws ReflectMemberException, ReflectClassException {
+        return valueInternal(tieReceiver(receiver), result, null, false);
+    }
 	
 	/**
 	 * Change the value in this field
@@ -144,6 +167,19 @@ public class ReflectField extends ReflectMember<ReflectField> {
 	public void setValue(Object value) throws ReflectMemberException {
 		valueInternal(null, value, true);
 	}
+
+    /**
+     * Change the value in this field using a specified receiver
+     *
+     * @param value
+     * 		The new value
+     *
+     * @throws ReflectMemberException
+     * 		Thrown if it was not possible to change the field value
+     */
+    public void setReceiverValue(Object receiver, Object value) throws ReflectMemberException {
+        valueInternal(tieReceiver(receiver), null, value, true);
+    }
 	
 	/**
 	 * For Internal Use
@@ -161,33 +197,42 @@ public class ReflectField extends ReflectMember<ReflectField> {
 			}
 		}
 		
-		Object data = null;
-		
-		try {
-			if (setValue) {
-				mField.set(receiver, value);
-				
-			} else {
-				data = mField.get(receiver);
-			}
-			
-		} catch (Throwable e) {
-			throw new ReflectMemberException("Unable to invoke field, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName(), e);
-		}
-		
-		if (!setValue) {
-			switch (result) {
-				case INSTANCE: 
-					return ReflectClass.fromReceiver(data);
-					
-				case RECEIVER: 
-					mReflectClass.setReceiver(data); 
-					
-				default:
-					return data;
-			}
-		}
-		
-		return null;
+        return valueInternal(receiver, result, value, setValue);
+	}
+
+	/**
+	 * For Internal Use
+	 *
+	 * @hide
+	 */
+	protected Object valueInternal(Object receiver, Result result, Object value, boolean setValue) throws ReflectMemberException {
+        Object data = null;
+
+        try {
+            if (setValue) {
+                mField.set(receiver, value);
+
+            } else {
+                data = mField.get(receiver);
+            }
+
+        } catch (Throwable e) {
+            throw new ReflectMemberException("Unable to invoke field, Field = " + mReflectClass.getObject().getName() + "#" + mField.getName(), e);
+        }
+
+        if (!setValue) {
+            switch (result) {
+                case INSTANCE:
+                    return ReflectClass.fromReceiver(data);
+
+                case RECEIVER:
+                    mReflectClass.setReceiver(data);
+
+                default:
+                    return data;
+            }
+        }
+
+        return null;
 	}
 }

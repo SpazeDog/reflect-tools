@@ -30,15 +30,19 @@ public class ReflectUtils {
 
 	/**
 	 * Check whether or not the currently active injection system is Cydia Substrate
+     *
+     * Use Boolean instead of boolean in cases where simple methods are optimized
 	 */
-	public static boolean usesCydia() {
+	public static Boolean usesCydia() {
 		return false;
 	}
 	
 	/**
 	 * Check whether or not the currently active injection system is Xposed Framework
+     *
+     * Use Boolean instead of boolean in cases where simple methods are optimized
 	 */
-	public static boolean usesXposed() {
+	public static Boolean usesXposed() {
 		return false;
 	}
 	

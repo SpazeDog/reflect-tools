@@ -20,14 +20,14 @@
 
 package com.spazedog.lib.reflecttools.bridge;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
-import java.lang.reflect.Method;
-
 import com.spazedog.lib.reflecttools.ReflectUtils.LOG;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeLogic;
+import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeOriginal;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeParams;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeType;
+
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -41,27 +41,18 @@ class MethodXposed extends XC_MethodHook implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;
-	
-	public static void setupBridge(MethodBridge bridge, Member member) {
-		LOG.Debug(MethodXposed.class.getName(), "Setting up new bridge\n\t\t" + 
-				"Class = " + member.getDeclaringClass().getName() + "\n\t\t" + 
-				"Member = " + (member instanceof Method ? member.getName() : "Constructor"));
-		
-		XposedBridge.hookMethod(member, new MethodXposed(bridge, member));
-	}
-	
-	private MethodXposed(MethodBridge bridge, Member member) {
+
+	protected MethodXposed(MethodBridge bridge, Member member) {
 		super();
-		
-		mBridge = bridge;
-		mMember = member;
-		
-		try {
-			Field field = mBridge.getClass().getDeclaredField("mLogic");
-			field.setAccessible(true);
-			field.set(mBridge, this);
-			
-		} catch (Throwable e) {}
+
+        mBridge = bridge;
+        mMember = member;
+
+        LOG.Debug(MethodXposed.class.getName(), "Setting up new bridge\n\t\t" +
+                "Class = " + member.getDeclaringClass().getName() + "\n\t\t" +
+                "Member = " + (member instanceof Method ? member.getName() : "Constructor"));
+
+        XposedBridge.hookMethod(mMember, this);
 	}
 	
 	@Override
@@ -79,17 +70,23 @@ class MethodXposed extends XC_MethodHook implements BridgeLogic {
 	}
 
     @Override
-    public Object invokeOriginal(Object receiver, Object... args) {
-        try {
-            return XposedBridge.invokeOriginalMethod(mMember, receiver, args);
+    public BridgeOriginal getOriginal() {
+        return new BridgeOriginal() {
+            @Override
+            public Object invoke(Object receiver, Object... args) {
+                try {
+                    return XposedBridge.invokeOriginalMethod(mMember, receiver, args);
 
-        } catch (Throwable e) {
-        }
+                } catch (Throwable e) {
+                    LOG.Error(MethodXposed.class.getName(), e.getMessage(), e);
+                }
 
-        return null;
+                return null;
+            }
+        };
     }
 
-	protected static class XposedParams extends BridgeParams {
+    protected static class XposedParams extends BridgeParams {
 		private static final Object oLock = new Object();
 		private static XposedParams oInstance;
 		private XposedParams mLastInstance = null;

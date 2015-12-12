@@ -205,27 +205,27 @@ public abstract class InitBridge implements IXposedHookZygoteInit {
 			} else {
 				utilsClass = ReflectUtils.class;
 			}
-			
+
 			methods[0] = utilsClass.getDeclaredMethod("bridgeInitiated");
-			
+
 			if (!(Boolean) methods[0].invoke(null)) {
 				LOG.Debug(this, "Changing Bridge status values");
-				
+
 				switch (type) {
-					case CYDIA: 
+					case CYDIA:
 						methods[1] = utilsClass.getDeclaredMethod("usesCydia");
-					
+
 						for (Method method : methods) {
-							MethodCydia.setupBridge(mUtilsBridge, method);
+                            new MethodCydia(mUtilsBridge, method);
 						}
-						
+
 						break;
-					
-					case XPOSED: 
+
+					case XPOSED:
 						methods[1] = utilsClass.getDeclaredMethod("usesXposed");
-						
+
 						for (Method method : methods) {
-							MethodXposed.setupBridge(mUtilsBridge, method);
+                            new MethodXposed(mUtilsBridge, method);
 						}
 				}
 			}

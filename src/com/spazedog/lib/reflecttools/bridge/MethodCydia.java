@@ -23,11 +23,11 @@ package com.spazedog.lib.reflecttools.bridge;
 import com.saurik.substrate.MS;
 import com.spazedog.lib.reflecttools.ReflectUtils.LOG;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeLogic;
+import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeOriginal;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeParams;
 import com.spazedog.lib.reflecttools.bridge.MethodBridge.BridgeType;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 
@@ -36,38 +36,27 @@ import java.lang.reflect.Method;
  * 
  * @hide
  */
-@SuppressWarnings("rawtypes")
 class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 	
 	private MethodBridge mBridge;
 	private Member mMember;
-	
-	@SuppressWarnings("unchecked")
-	public static void setupBridge(MethodBridge bridge, Member member) {
-		LOG.Debug(MethodCydia.class.getName(), "Setting up new bridge\n\t\t" + 
-				"Class = " + member.getDeclaringClass().getName() + "\n\t\t" + 
-				"Member = " + (member instanceof Method ? member.getName() : "Constructor"));
-		
-		if (member instanceof Constructor) {
-			MS.hookMethod(member.getDeclaringClass(), (Constructor) member, new MethodCydia(bridge, member));
-			
-		} else {
-			MS.hookMethod(member.getDeclaringClass(), (Method) member, new MethodCydia(bridge, member));
-		}
-	}
-	
-	public MethodCydia(MethodBridge bridge, Member member) {
+
+    protected MethodCydia(MethodBridge bridge, Member member) {
 		super();
 		
 		mBridge = bridge;
 		mMember = member;
-		
-		try {
-			Field field = mBridge.getClass().getDeclaredField("mLogic");
-			field.setAccessible(true);
-			field.set(mBridge, this);
-			
-		} catch (Throwable e) {}
+
+        LOG.Debug(MethodCydia.class.getName(), "Setting up new bridge\n\t\t" +
+                "Class = " + member.getDeclaringClass().getName() + "\n\t\t" +
+                "Member = " + (member instanceof Method ? member.getName() : "Constructor"));
+
+        if (member instanceof Constructor) {
+            MS.hookMethod(member.getDeclaringClass(), (Constructor) member, this);
+
+        } else {
+            MS.hookMethod(member.getDeclaringClass(), (Method) member, this);
+        }
 	}
 
 	@SuppressWarnings("unchecked")
@@ -87,8 +76,25 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
 		
 		return result;
 	}
-	
-	protected static class CydiaParams extends BridgeParams {
+
+    @Override
+    public BridgeOriginal getOriginal() {
+        return new BridgeOriginal(){
+            @Override
+            public Object invoke(Object receiver, Object... args) {
+                try {
+                    return MethodCydia.this.invoke(receiver, args);
+
+                } catch (Throwable e) {
+                    LOG.Error(MethodXposed.class.getName(), e.getMessage(), e);
+                }
+
+                return null;
+            }
+        };
+    }
+
+    protected static class CydiaParams extends BridgeParams {
 		private static final Object oLock = new Object();
 		private static CydiaParams oInstance;
 		private CydiaParams mLastInstance = null;
@@ -152,17 +158,5 @@ class MethodCydia extends MS.MethodAlteration implements BridgeLogic {
                 return null;
             }
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-    public Object invokeOriginal(Object receiver, Object... args) {
-        try {
-            return invoke(receiver, args);
-
-        } catch (Throwable e) {
-        }
-		
-		return null;
 	}
 }

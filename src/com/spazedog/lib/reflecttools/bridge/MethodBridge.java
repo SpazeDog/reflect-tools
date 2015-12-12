@@ -20,9 +20,9 @@
 
 package com.spazedog.lib.reflecttools.bridge;
 
-import java.lang.reflect.Member;
-
 import com.spazedog.lib.reflecttools.ReflectUtils;
+
+import java.lang.reflect.Member;
 
 public abstract class MethodBridge {
 	
@@ -48,23 +48,27 @@ public abstract class MethodBridge {
 	 * @param member
 	 * 		The {@link Member} to bridge
 	 */
-	public void attachBridge(Member member) {
+	public final BridgeOriginal attachBridge(Member member) {
 		if (ReflectUtils.bridgeInitiated()) {
+            BridgeLogic bridge = null;
+            BridgeOriginal original = null;
+
 			if (ReflectUtils.usesCydia()) {
-				MethodCydia.setupBridge(this, member);
+                bridge = new MethodCydia(this, member);
 					
 			} else {
-				MethodXposed.setupBridge(this, member);
+                bridge = new MethodXposed(this, member);
 			}
+
+            original = bridge.getOriginal();
+
+            bridgeAttached(member, original);
+
+            return original;
 		}
+
+        return null;
 	}
-	
-	/**
-	 * For Internal Use
-	 * 
-	 * @hide
-	 */
-	private BridgeLogic mLogic;
 	
 	/**
 	 * This method is invoked before the Original. If you want to skip the Original method, 
@@ -83,21 +87,19 @@ public abstract class MethodBridge {
 	 * 		Contains information about the original member and the arguments parsed to it
 	 */
 	public void bridgeEnd(BridgeParams params) {}
-	
-	/**
-	 * This method will invoke the original member and return 
-	 * it's return value
-	 * 
-	 * @param args
-	 * 		Arguments to parse to the original member
-	 */
-	public Object invokeOriginal(Object receiver, Object... args) {
-		if (mLogic != null) {
-			return mLogic.invokeOriginal(receiver, args);
-		}
-		
-		return null;
-	}
+
+    /**
+     * Called once the bridge has been attached
+     *
+     * @param member
+     *      The member where the bridge was attached to
+     *
+     * @param original
+     *      An {@link BridgeOriginal} instance that can be used to call the original member.
+     *      This is meant to be used outside of the hooked method. Use <code>invokeOriginal</code>
+     *      from {@link BridgeParams} if you are executing from within the hook.
+     */
+    public void bridgeAttached(Member member, BridgeOriginal original) {}
 	
 	/**
 	 * Container used by {@link #bridgeBegin(BridgeParams)} and {@link #bridgeEnd(BridgeParams)}
@@ -147,6 +149,10 @@ public abstract class MethodBridge {
 	 * @hide
 	 */
 	protected static interface BridgeLogic {
-		public Object invokeOriginal(Object receiver, Object... args);
+		public BridgeOriginal getOriginal();
 	}
+
+    public static interface BridgeOriginal {
+        public Object invoke(Object receiver, Object... args);
+    }
 }
