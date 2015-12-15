@@ -1,2 +1,4 @@
 com.spazedog.lib.reflecttools
+com.spazedog.lib.reflecttools.apache
 com.spazedog.lib.reflecttools.bridge
+de.robv.android.xposed
