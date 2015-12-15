@@ -1,6 +1,6 @@
 apply plugin: 'com.android.library'
 
-buildDir = '../../build/reflectTools'
+buildDir = "${System.properties['user.home']}/.gradle/build/${rootProject.name}/${project.name}"
 
 android {
     compileSdkVersion 21
@@ -9,8 +9,8 @@ android {
     defaultConfig {
         minSdkVersion 4
         targetSdkVersion 22
-        versionCode 30
-        versionName "3.0.1"
+        versionCode 31
+        versionName "3.1.0"
     }
 
     sourceSets {
