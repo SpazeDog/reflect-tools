@@ -11,6 +11,16 @@ So why support only one when you can support it all?
 ### Include Library
 -----------
 
+**Maven**
+
+Reflect Tools is available in Maven respository at [Bintray](https://bintray.com/dk-zero-cool/maven/reflect-tools/view) and can be accessed via jCenter. 
+
+```
+dependencies {
+    compile 'com.spazedog.lib:reflect-tools'
+}
+```
+
 **Android Studio**
 
 First download the [ReflectTools-release.aar](https://github.com/SpazeDog/reflect-tools/raw/3.x/projects/reflectTools-release.aar) file. 
