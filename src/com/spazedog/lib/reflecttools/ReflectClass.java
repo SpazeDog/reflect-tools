@@ -851,7 +851,11 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	}
 	
 	/**
-	 * Add a hook to all {@link Method}'s of this class with a specific name
+	 * Add a hook to all {@link Method}'s of this class with a specific name<br /><br />
+     *
+     * This method will search the current class and continue to follow super classes until at least one
+     * member is found matching the name. Only use this if you are expecting a specific member to be the only one available.
+     * If you want to target a member with specific parameters, you should consider using {@link ReflectMethod#bridge(MethodBridge)} or {@link ReflectConstructor#bridge(MethodBridge)}.
 	 * 
 	 * @param methodName
 	 * 		The name of the {@link Method}'s
@@ -868,25 +872,37 @@ public class ReflectClass extends ReflectObject<Class<?>> {
 	 */
 	public int bridge(String methodName, MethodBridge callback) throws ReflectClassException {
 		if (ReflectUtils.bridgeInitiated()) {
-			try {
-				Member[] members = methodName != null ? mClass.getDeclaredMethods() : mClass.getDeclaredConstructors();
-				Integer count = 0;
-				
-				for (Member member : members) {
-					if (methodName == null || member.getName().equals(methodName)) {
-						callback.attachBridge(member); count += 1;
-					}
-				}
-				
-				if (count == 0) {
-					throw new ReflectClassException("Could not find any " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for the class " + mClass.getName());
-				}
-				
-				return count;
-				
-			} catch (Throwable e) {
-				throw new ReflectClassException("Error while injecting runtime code to the " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for " + mClass.getName(), e);
-			}
+            Throwable throwable = null;
+            Integer count = 0;
+            Class<?> clazz = mClass;
+
+            do {
+                try {
+                    Member[] members = methodName != null ? clazz.getDeclaredMethods() : clazz.getDeclaredConstructors();
+
+                    for (Member member : members) {
+                        if (methodName == null || member.getName().equals(methodName)) {
+                            callback.attachBridge(member); count++;
+                        }
+                    }
+
+                } catch (Throwable e) {
+                    if (throwable == null) {
+                        throwable = e;
+                    }
+                }
+
+            } while (count == 0 && (clazz = clazz.getSuperclass()) != null);
+
+            if (count == 0 && throwable != null) {
+                throw new ReflectClassException("Error while injecting runtime code to the " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for " + mClass.getName(), throwable);
+
+            } else if (count == 0) {
+                throw new ReflectClassException("Could not find any " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for the class " + mClass.getName());
+
+            } else {
+                return count;
+            }
 			
 		} else {
 			throw new ReflectClassException("Cannot inject runtime code while no bridge has been initiated, attempted on " + (methodName == null ? "constructors" : "methods matching the name " + methodName) + " for " + mClass.getName());
